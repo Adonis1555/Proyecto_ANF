@@ -114,4 +114,19 @@ Route::prefix('proyeccion-ventas')->name('proyeccion.')->group(function () {
     Route::get('/descargar-plantilla', [ProyeccionVentasController::class, 'descargarPlantilla'])->name('plantilla');
 });
 
+// Analisis Vertical & Horizontal
+use App\Http\Controllers\AnalisisVerticalController;
+Route::prefix('analisis')->name('analisis.')->group(function () {
+    // Vista principal para seleccionar tipo de análisis, empresa y años
+    Route::get('/', [AnalisisFinancieroController::class, 'index'])->name('index');
+    
+    // Procesar / Obtener datos del Análisis Vertical
+    Route::get('/vertical', [AnalisisFinancieroController::class, 'analisisVertical'])->name('vertical');
+    
+    // Procesar / Obtener datos del Análisis Horizontal
+    Route::get('/horizontal', [AnalisisFinancieroController::class, 'analisisHorizontal'])->name('horizontal');
+    
+    // Opción combinada (si deseas ver ambos análisis en un mismo reporte/tabla)
+    Route::post('/generar', [AnalisisFinancieroController::class, 'generar'])->name('generar');
+});
 

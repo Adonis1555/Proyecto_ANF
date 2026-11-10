@@ -13,13 +13,17 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
-    <!-- Carga tu CSS global procesado por Vite -->
+    <!-- Alpine.js para interactividad suave de menús (Apertura al clic sostenida) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Carga CSS/JS mediante Vite -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     <style>
         body {
             font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
         }
+        [x-cloak] { display: none !important; }
     </style>
 </head>
 <body class="h-full font-sans antialiased text-slate-800 bg-[#f1f5f9] flex flex-col overflow-x-hidden">
@@ -32,7 +36,7 @@
         <div class="w-full px-4 sm:px-6">
             <div class="flex h-16 items-center justify-between gap-4">
                 
-                <!-- 1. Marca / Logo Unificado (Pegado al borde izquierdo) -->
+                <!-- 1. Marca / Logo Unificado -->
                 <div class="flex items-center gap-3 flex-shrink-0">
                     <a href="{{ route('dashboard') }}" class="flex items-center gap-2 font-extrabold text-base sm:text-lg tracking-tight text-white hover:opacity-95 transition">
                         <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black shadow-md shadow-cyan-500/20 flex-shrink-0">
@@ -42,7 +46,7 @@
                     </a>
                 </div>
 
-                <!-- 2. Menú de Navegación Desktop Distribuido Uniformemente -->
+                <!-- 2. Menú de Navegación Desktop -->
                 <nav class="hidden lg:flex items-center justify-evenly flex-1 max-w-5xl mx-2 gap-1 xl:gap-2">
                     
                     <a href="{{ route('catalogo.index') }}" 
@@ -70,30 +74,32 @@
                        Gráficos
                     </a>
 
-                    <!-- Dropdown: Comparaciones -->
-                    <div class="relative group">
-                        <button class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition whitespace-nowrap">
+                    <!-- Dropdown: Comparaciones (Sostenido por clic) -->
+                    <div class="relative" x-data="{ open: false }">
+                        <button @click="open = !open" @click.outside="open = false" type="button" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition whitespace-nowrap">
                             <span class="{{ request()->routeIs('comparacion.*') ? 'text-cyan-400 font-semibold' : '' }}">Comparaciones</span>
-                            <i class="bi bi-chevron-down text-xs text-slate-400 group-hover:text-white"></i>
+                            <i class="bi bi-chevron-down text-xs text-slate-400 transition" :class="{ 'rotate-180': open }"></i>
                         </button>
-                        <div class="absolute left-0 mt-1 w-48 rounded-xl bg-white p-1.5 shadow-2xl ring-1 ring-black/5 hidden group-hover:block z-50">
-                            <a href="{{ route('comparacion.sector.index') }}" class="block px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600">Por Sector</a>
-                            <a href="{{ route('comparacion.promedio.index') }}" class="block px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600">Por Promedio</a>
-                            <a href="{{ route('comparacion.index') }}" class="block px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600">Comparación Ratios</a>
+                        <div x-show="open" x-cloak x-transition
+                             class="absolute left-0 mt-2 w-48 rounded-xl bg-white p-1.5 shadow-2xl ring-1 ring-black/5 z-50 text-left">
+                            <a href="{{ route('comparacion.sector.index') }}" class="block px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600 transition">Por Sector</a>
+                            <a href="{{ route('comparacion.promedio.index') }}" class="block px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600 transition">Por Promedio</a>
+                            <a href="{{ route('comparacion.index') }}" class="block px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600 transition">Comparación Ratios</a>
                         </div>
                     </div>
 
                     <!-- Dropdown: Análisis Financiero -->
-                    <div class="relative group">
-                        <button class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition whitespace-nowrap">
+                    <div class="relative" x-data="{ open: false }">
+                        <button @click="open = !open" @click.outside="open = false" type="button" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition whitespace-nowrap">
                             <span class="{{ request()->routeIs('analisis.*') ? 'text-cyan-400 font-semibold' : '' }}">Análisis</span>
-                            <i class="bi bi-chevron-down text-xs text-slate-400 group-hover:text-white"></i>
+                            <i class="bi bi-chevron-down text-xs text-slate-400 transition" :class="{ 'rotate-180': open }"></i>
                         </button>
-                        <div class="absolute left-0 mt-1 w-52 rounded-xl bg-white p-1.5 shadow-2xl ring-1 ring-black/5 hidden group-hover:block z-50">
-                            <a href="{{ route('analisis.index') }}" class="block px-3 py-1.5 rounded-lg text-xs font-bold text-slate-900 hover:bg-cyan-50 hover:text-cyan-700">Panel General</a>
+                        <div x-show="open" x-cloak x-transition
+                             class="absolute left-0 mt-2 w-52 rounded-xl bg-white p-1.5 shadow-2xl ring-1 ring-black/5 z-50 text-left">
+                            <a href="{{ route('analisis.index') }}" class="block px-3 py-2 rounded-lg text-xs font-bold text-slate-900 hover:bg-cyan-50 hover:text-cyan-700 transition">Panel General</a>
                             <div class="my-1 border-t border-slate-100"></div>
-                            <a href="{{ route('analisis.vertical') }}" class="block px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600">Análisis Vertical</a>
-                            <a href="{{ route('analisis.horizontal') }}" class="block px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600">Análisis Horizontal</a>
+                            <a href="{{ route('analisis.vertical') }}" class="block px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600 transition">Análisis Vertical</a>
+                            <a href="{{ route('analisis.horizontal') }}" class="block px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600 transition">Análisis Horizontal</a>
                         </div>
                     </div>
 
@@ -103,45 +109,78 @@
                     </a>
 
                     <!-- Dropdown: Ajustes -->
-                    <div class="relative group">
-                        <button class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition whitespace-nowrap">
+                    <div class="relative" x-data="{ open: false }">
+                        <button @click="open = !open" @click.outside="open = false" type="button" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition whitespace-nowrap">
                             <span class="{{ request()->routeIs('sector.*') || request()->routeIs('empresa.*') ? 'text-cyan-400 font-semibold' : '' }}">Ajustes</span>
-                            <i class="bi bi-chevron-down text-xs text-slate-400 group-hover:text-white"></i>
+                            <i class="bi bi-chevron-down text-xs text-slate-400 transition" :class="{ 'rotate-180': open }"></i>
                         </button>
-                        <div class="absolute right-0 mt-1 w-44 rounded-xl bg-white p-1.5 shadow-2xl ring-1 ring-black/5 hidden group-hover:block z-50">
-                            <a href="{{ route('sector.index') }}" class="block px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600">Sectores</a>
-                            <a href="{{ route('empresa.index') }}" class="block px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600">Empresas</a>
+                        <div x-show="open" x-cloak x-transition
+                             class="absolute right-0 mt-2 w-44 rounded-xl bg-white p-1.5 shadow-2xl ring-1 ring-black/5 z-50 text-left">
+                            <a href="{{ route('sector.index') }}" class="block px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600 transition">Sectores</a>
+                            <a href="{{ route('empresa.index') }}" class="block px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600 transition">Empresas</a>
                         </div>
                     </div>
 
                 </nav>
 
-                <!-- 3. Controles Derecha (Usuario + Botón Móvil) -->
+                <!-- 3. Controles Derecha: Perfil de Usuario Rediseñado (Sin "Sesión Activa") -->
                 <div class="flex items-center gap-2 flex-shrink-0">
                     
-                    <!-- Perfil de Usuario -->
-                    <div class="relative group">
-                        <button class="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/90 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700 transition">
-                            <div class="h-5 w-5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center justify-center font-bold text-[10px]">
-                                {{ strtoupper(substr(session('usuario_nombre', 'U'), 0, 1)) }}
+                    @php
+                        $nombreUsuario = session('usuario_nombre') ?? (Auth::check() ? Auth::user()->name : 'Ana');
+                        $rolesUsuario = session('usuario_rol') ?? (Auth::check() ? [Auth::user()->rol ?? 'Administrador'] : ['Administrador']);
+                        $inicial = strtoupper(substr($nombreUsuario, 0, 1));
+                    @endphp
+
+                    <!-- Dropdown de Usuario con Clic Sostenido -->
+                    <div class="relative" x-data="{ open: false }">
+                        <!-- Botón Selector -->
+                        <button @click="open = !open" @click.outside="open = false" type="button" 
+                                class="flex items-center gap-2.5 rounded-xl border border-slate-700/80 bg-slate-800/80 hover:bg-slate-700/90 px-3 py-1.5 text-xs font-medium text-slate-200 transition focus:outline-none focus:ring-2 focus:ring-cyan-500/50">
+                            <div class="h-6 w-6 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center font-bold font-mono text-xs shadow-2xs">
+                                {{ $inicial }}
                             </div>
-                            <span class="hidden md:inline max-w-[90px] truncate font-semibold">{{ session('usuario_nombre', 'Usuario') }}</span>
-                            <i class="bi bi-chevron-down text-[9px] text-slate-400"></i>
+                            <span class="hidden md:inline font-semibold text-white tracking-tight">{{ $nombreUsuario }}</span>
+                            <i class="bi bi-chevron-down text-[10px] text-slate-400 transition" :class="{ 'rotate-180': open }"></i>
                         </button>
 
-                        <div class="absolute right-0 mt-1 w-56 rounded-xl bg-white p-2 shadow-2xl ring-1 ring-black/5 hidden group-hover:block z-50">
-                            <div class="px-2.5 py-1.5 bg-slate-50 rounded-lg mb-1 border border-slate-100">
-                                <p class="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Sesión Activa</p>
-                                <p class="text-xs font-bold text-slate-900 truncate">{{ session('usuario_nombre', 'Usuario') }}</p>
-                                <div class="mt-1 flex flex-wrap gap-1">
-                                    @foreach ((array) session('usuario_rol') as $rol)
-                                        <span class="inline-flex items-center rounded bg-cyan-50 px-1.5 py-0.5 text-[9px] font-bold text-cyan-700 border border-cyan-200/60">{{ $rol }}</span>
-                                    @endforeach
+                        <!-- Menú Desplegable Rediseñado -->
+                        <div x-show="open" x-cloak x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+                             class="absolute right-0 mt-2 w-64 rounded-2xl bg-white p-3 shadow-2xl border border-slate-200/80 z-50 text-left">
+                            
+                            <!-- Tarjeta de Usuario Elegante -->
+                            <div class="p-3 bg-slate-900 rounded-xl text-white space-y-2 mb-2">
+                                <div class="flex items-center gap-3">
+                                    <div class="h-9 w-9 rounded-xl bg-cyan-500 text-slate-900 font-bold font-mono flex items-center justify-center text-sm">
+                                        {{ $inicial }}
+                                    </div>
+                                    <div class="overflow-hidden">
+                                        <div class="flex items-center gap-1.5">
+                                            <p class="text-xs font-bold truncate text-white">{{ $nombreUsuario }}</p>
+                                            <span class="h-2 w-2 rounded-full bg-emerald-400 shrink-0"></span>
+                                        </div>
+                                        <div class="flex flex-wrap gap-1 mt-0.5">
+                                            @foreach ((array) $rolesUsuario as $rol)
+                                                <span class="text-[10px] text-cyan-300 font-semibold uppercase tracking-wider">{{ $rol }}</span>
+                                            @endforeach
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <a href="{{ route('logout') }}" class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 transition">
-                                <i class="bi bi-box-arrow-right"></i> Cerrar sesión
-                            </a>
+
+                            <!-- Opciones -->
+                            <div class="space-y-1">
+                                <a href="{{ route('logout') }}" 
+                                   onclick="event.preventDefault(); document.getElementById('logout-form-header').submit();"
+                                   class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition">
+                                    <i class="bi bi-box-arrow-right text-sm"></i>
+                                    <span>Cerrar sesión</span>
+                                </a>
+
+                                <form id="logout-form-header" action="{{ route('logout') }}" method="POST" class="hidden">
+                                    @csrf
+                                </form>
+                            </div>
                         </div>
                     </div>
 

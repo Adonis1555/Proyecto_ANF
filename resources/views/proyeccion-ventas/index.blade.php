@@ -1,215 +1,271 @@
-{{-- resources/views/proyeccion-ventas/index.blade.php --}}
 @extends('layouts.app')
 
 @section('title', 'Proyección de Ventas')
 
 @section('content')
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h3>Proyección de Ventas - 12 Meses</h3>
-    <a href="{{ route('proyeccion.plantilla') }}" class="btn btn-success">
-        <i class="bi bi-download"></i> Descargar Plantilla Excel
-    </a>
-</div>
+<div class="space-y-6">
 
-{{-- Alertas --}}
-<div id="alertContainer"></div>
-
-{{-- Card Principal --}}
-<div class="card shadow-sm">
-    <div class="card-header bg-primary text-white">
-        <h5 class="mb-0">Ingreso de Datos Históricos</h5>
-    </div>
-    <div class="card-body">
-        {{-- Selector de método de entrada --}}
-        <div class="mb-4">
-            <label class="form-label fw-bold">Método de entrada de datos:</label>
-            <div class="form-check">
-                <input class="form-check-input" type="radio" name="metodoEntrada" id="radioManual" value="manual" checked>
-                <label class="form-check-label" for="radioManual">
-                    Ingreso Manual
-                </label>
-            </div>
-            <div class="form-check">
-                <input class="form-check-input" type="radio" name="metodoEntrada" id="radioExcel" value="excel">
-                <label class="form-check-label" for="radioExcel">
-                    Cargar archivo Excel
-                </label>
+    <!-- Encabezado Principal y Breadcrumbs -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="space-y-1">
+            <nav class="flex items-center gap-2 text-xs text-slate-400 font-medium mb-1">
+                <a href="{{ route('dashboard') }}" class="hover:text-cyan-600 transition">Inicio</a>
+                <i class="bi bi-chevron-right text-[10px]"></i>
+                <span class="text-slate-600 font-semibold">Proyección de Ventas</span>
+            </nav>
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-xl bg-cyan-500/10 text-cyan-600 border border-cyan-500/20 flex items-center justify-center font-bold">
+                    <i class="bi bi-graph-up-arrow text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 tracking-tight">Proyección de Ventas — 12 Meses</h1>
+                    <p class="text-xs text-slate-500">Estimación estadística basada en Mínimos Cuadrados e Incrementos Absolutos/Porcentuales</p>
+                </div>
             </div>
         </div>
 
-        <hr>
+        <a href="{{ route('proyeccion.plantilla') }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition shadow-sm self-start sm:self-auto">
+            <i class="bi bi-download text-sm"></i>
+            Descargar Plantilla Excel
+        </a>
+    </div>
 
-        {{-- Formulario Manual --}}
-        <div id="formManual">
-            <h5 class="mb-3">Ingrese las ventas mensuales:</h5>
-            <div class="row">
+    <!-- Contenedor para Alertas Dinámicas -->
+    <div id="alertContainer" class="space-y-2"></div>
+
+    <!-- Tarjeta Principal de Entrada de Datos -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+        
+        <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
+            <div class="h-9 w-9 rounded-lg bg-slate-900 text-cyan-400 flex items-center justify-center">
+                <i class="bi bi-sliders text-lg"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-sm text-slate-900">Ingreso de Datos Históricos</h3>
+                <p class="text-xs text-slate-400">Selecciona la modalidad para cargar los registros de ventas del ejercicio</p>
+            </div>
+        </div>
+
+        <!-- Selector de Método de Entrada -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label class="relative flex items-center gap-3 p-4 rounded-xl border border-slate-200 cursor-pointer hover:border-cyan-500 hover:bg-cyan-50/20 transition group">
+                <input type="radio" name="metodoEntrada" id="radioManual" value="manual" checked class="w-4 h-4 text-cyan-600 border-slate-300 focus:ring-cyan-500">
+                <div class="space-y-0.5">
+                    <span class="block text-xs font-bold text-slate-800 uppercase tracking-wider group-hover:text-cyan-600">Ingreso Manual</span>
+                    <span class="block text-xs text-slate-400">Digita los montos mes a mes directamente en la plataforma</span>
+                </div>
+            </label>
+
+            <label class="relative flex items-center gap-3 p-4 rounded-xl border border-slate-200 cursor-pointer hover:border-cyan-500 hover:bg-cyan-50/20 transition group">
+                <input type="radio" name="metodoEntrada" id="radioExcel" value="excel" class="w-4 h-4 text-cyan-600 border-slate-300 focus:ring-cyan-500">
+                <div class="space-y-0.5">
+                    <span class="block text-xs font-bold text-slate-800 uppercase tracking-wider group-hover:text-cyan-600">Cargar Archivo Excel</span>
+                    <span class="block text-xs text-slate-400">Importa los datos mediante una plantilla .xlsx predefinida</span>
+                </div>
+            </label>
+        </div>
+
+        <!-- Formulario Manual -->
+        <div id="formManual" class="space-y-4 pt-2">
+            <div class="flex items-center justify-between">
+                <h4 class="font-bold text-xs uppercase tracking-wider text-slate-700">Ventas Mensuales ($)</h4>
+                <span class="text-[11px] text-slate-400">Ingresa valores numéricos válidos</span>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 @php
                     $meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
                               'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
                 @endphp
                 
                 @foreach($meses as $index => $mes)
-                    <div class="col-md-3 mb-3">
-                        <label class="form-label">{{ $mes }}</label>
-                        <input type="number" step="0.01" class="form-control venta-input" 
-                               id="mes{{ $index + 1 }}" placeholder="0.00">
+                    <div class="space-y-1">
+                        <label class="block text-[11px] font-semibold text-slate-600 uppercase">{{ $mes }}</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-xs text-slate-400 font-mono pointer-events-none">$</span>
+                            <input type="number" step="0.01" id="mes{{ $index + 1 }}" placeholder="0.00" 
+                                   class="venta-input w-full pl-7 pr-3 py-2 rounded-xl border border-slate-300 text-xs font-mono font-semibold text-slate-800 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition bg-white">
+                        </div>
                     </div>
                 @endforeach
             </div>
-            <div class="alert alert-info mt-3">
-                <i class="bi bi-info-circle"></i>NOTA: Si ingresa solo 11 meses, el sistema generará automáticamente el mes 12 con el promedio.
+
+            <div class="p-3.5 rounded-xl bg-cyan-50 border border-cyan-200/80 text-cyan-800 text-xs flex items-center gap-2">
+                <i class="bi bi-info-circle-fill text-cyan-600 text-sm shrink-0"></i>
+                <span><strong>Nota:</strong> Si ingresas solo 11 meses, el sistema estimará automáticamente el mes 12 utilizando el promedio histórico.</span>
             </div>
         </div>
 
-        {{-- Formulario Excel --}}
-        <div id="formExcel" style="display: none;">
-            <h5 class="mb-3">Suba el archivo Excel con los datos:</h5>
-            <div class="mb-3">
-                <label for="archivoExcel" class="form-label">Seleccione el archivo:</label>
-                <input class="form-control" type="file" id="archivoExcel" accept=".xlsx,.xls">
+        <!-- Formulario Excel (Oculto por defecto) -->
+        <div id="formExcel" class="hidden space-y-4 pt-2">
+            <h4 class="font-bold text-xs uppercase tracking-wider text-slate-700">Seleccionar Plantilla de Ventas</h4>
+            
+            <div class="relative border-2 border-dashed border-slate-300 hover:border-cyan-500 hover:bg-cyan-50/30 rounded-2xl p-6 text-center transition group cursor-pointer">
+                <input type="file" id="archivoExcel" accept=".xlsx,.xls" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                <div class="flex flex-col items-center justify-center space-y-2">
+                    <div class="h-10 w-10 rounded-xl bg-slate-100 text-slate-500 group-hover:bg-cyan-600 group-hover:text-white flex items-center justify-center transition shadow-sm">
+                        <i class="bi bi-file-earmark-excel text-xl"></i>
+                    </div>
+                    <div class="text-xs">
+                        <span class="font-semibold text-cyan-600 hover:underline">Haz clic para buscar</span> o arrastra tu hoja de cálculo aquí
+                    </div>
+                    <p class="text-[11px] text-slate-400">Formatos soportados: .xlsx, .xls</p>
+                </div>
             </div>
-            <div class="alert alert-warning">
-                <i class="bi bi-exclamation-triangle"></i> 
-                <strong>Importante:</strong> El archivo debe tener el formato de la plantilla descargada.
-                <br>Columna A: Mes | Columna B: Ventas
+
+            <div class="p-3.5 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-900 text-xs flex items-start gap-2">
+                <i class="bi bi-exclamation-triangle-fill text-amber-600 text-sm mt-0.5 shrink-0"></i>
+                <div>
+                    <strong>Estructura Requerida:</strong> El archivo debe mantener el formato de la plantilla oficial (Columna A: Mes | Columna B: Ventas).
+                </div>
             </div>
         </div>
 
-        {{-- Botón Proyectar --}}
-        <div class="d-grid gap-2 mt-4">
-            <button class="btn btn-primary btn-lg" id="btnProyectar">
-                <i class="bi bi-graph-up-arrow"></i> Generar Proyección
+        <!-- Botón de Acción -->
+        <div class="pt-2 border-t border-slate-100">
+            <button id="btnProyectar" class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-xs font-bold text-white bg-cyan-600 hover:bg-cyan-700 active:bg-cyan-800 transition shadow-sm">
+                <i class="bi bi-graph-up-arrow text-sm"></i>
+                Generar Proyección
             </button>
         </div>
+
     </div>
+
+    <!-- Sección de Resultados (Oculta por defecto) -->
+    <div id="resultadosSection" class="hidden space-y-6">
+
+        <!-- Fichas Estadísticas -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+            <h3 class="font-bold text-xs uppercase tracking-wider text-slate-700 border-b border-slate-100 pb-3 flex items-center gap-2">
+                <i class="bi bi-calculator text-cyan-600"></i>
+                Estadísticas de Datos Históricos
+            </h3>
+
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/60 space-y-1">
+                    <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Promedio</span>
+                    <span id="statPromedio" class="block text-sm font-mono font-extrabold text-cyan-600">-</span>
+                </div>
+
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/60 space-y-1">
+                    <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Máximo</span>
+                    <span id="statMaximo" class="block text-sm font-mono font-extrabold text-emerald-600">-</span>
+                </div>
+
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/60 space-y-1">
+                    <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mínimo</span>
+                    <span id="statMinimo" class="block text-sm font-mono font-extrabold text-rose-600">-</span>
+                </div>
+
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/60 space-y-1">
+                    <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Desv. Estándar</span>
+                    <span id="statDesviacion" class="block text-sm font-mono font-extrabold text-amber-600">-</span>
+                </div>
+
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/60 space-y-1 col-span-2 md:col-span-1">
+                    <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tendencia</span>
+                    <span id="statTendencia" class="block text-xs font-bold text-slate-800 uppercase">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid de Tablas por Método de Proyección -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Mínimos Cuadrados -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between">
+                <div>
+                    <div class="bg-slate-900 px-5 py-3.5 border-b border-slate-800 text-white flex items-center justify-between">
+                        <h4 class="font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+                            <i class="bi bi-graph-up text-cyan-400"></i>
+                            Mínimos Cuadrados
+                        </h4>
+                    </div>
+                    <div class="p-4 border-b border-slate-100 bg-slate-50/50">
+                        <p class="text-[11px] font-mono text-slate-500" id="formulaMC">Fórmula: -</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-600 text-[11px] uppercase tracking-wider border-b border-slate-200">
+                                    <th class="py-2.5 px-4 font-semibold">Mes</th>
+                                    <th class="py-2.5 px-4 font-semibold text-right">Proyección</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaMC" class="divide-y divide-slate-100 text-xs"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Incremento Porcentual -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between">
+                <div>
+                    <div class="bg-slate-900 px-5 py-3.5 border-b border-slate-800 text-white flex items-center justify-between">
+                        <h4 class="font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+                            <i class="bi bi-percent text-emerald-400"></i>
+                            Incremento Porcentual
+                        </h4>
+                    </div>
+                    <div class="p-4 border-b border-slate-100 bg-slate-50/50">
+                        <p class="text-[11px] font-mono text-slate-500" id="infoIP">Incremento promedio: -</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-600 text-[11px] uppercase tracking-wider border-b border-slate-200">
+                                    <th class="py-2.5 px-4 font-semibold">Mes</th>
+                                    <th class="py-2.5 px-4 font-semibold text-right">Proyección</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaIP" class="divide-y divide-slate-100 text-xs"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Incremento Absoluto -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between">
+                <div>
+                    <div class="bg-slate-900 px-5 py-3.5 border-b border-slate-800 text-white flex items-center justify-between">
+                        <h4 class="font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+                            <i class="bi bi-plus-slash-minus text-amber-400"></i>
+                            Incremento Absoluto
+                        </h4>
+                    </div>
+                    <div class="p-4 border-b border-slate-100 bg-slate-50/50">
+                        <p class="text-[11px] font-mono text-slate-500" id="infoIA">Incremento promedio: -</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-600 text-[11px] uppercase tracking-wider border-b border-slate-200">
+                                    <th class="py-2.5 px-4 font-semibold">Mes</th>
+                                    <th class="py-2.5 px-4 font-semibold text-right">Proyección</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaIA" class="divide-y divide-slate-100 text-xs"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Gráfico Comparativo -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+            <h3 class="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                <i class="bi bi-bar-chart-line text-cyan-600"></i>
+                Gráfico Comparativo de Proyecciones
+            </h3>
+            <div class="relative w-full min-h-[350px]">
+                <canvas id="chartProyecciones"></canvas>
+            </div>
+        </div>
+
+    </div>
+
 </div>
-
-{{-- Sección de Resultados --}}
-<div id="resultadosSection" style="display: none;" class="mt-4">
-    {{-- Estadísticas --}}
-    <div class="card shadow-sm mb-4">
-        <div class="card-header bg-info text-white">
-            <h5 class="mb-0">Estadísticas de Datos Históricos</h5>
-        </div>
-        <div class="card-body">
-            <div class="row text-center">
-                <div class="col-md-2">
-                    <div class="border rounded p-3">
-                        <h6 class="text-muted">Promedio</h6>
-                        <h4 id="statPromedio" class="text-primary">-</h4>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="border rounded p-3">
-                        <h6 class="text-muted">Máximo</h6>
-                        <h4 id="statMaximo" class="text-success">-</h4>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="border rounded p-3">
-                        <h6 class="text-muted">Mínimo</h6>
-                        <h4 id="statMinimo" class="text-danger">-</h4>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="border rounded p-3">
-                        <h6 class="text-muted">Desviación Estándar</h6>
-                        <h4 id="statDesviacion" class="text-warning">-</h4>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="border rounded p-3">
-                        <h6 class="text-muted">Tendencia General</h6>
-                        <h4 id="statTendencia" class="text-info">-</h4>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- Tablas de Proyecciones --}}
-    <div class="row">
-        {{-- Mínimos Cuadrados --}}
-        <div class="col-md-4 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Mínimos Cuadrados</h5>
-                </div>
-                <div class="card-body">
-                    <p class="text-muted small" id="formulaMC">Fórmula: -</p>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Mes</th>
-                                    <th class="text-end">Proyección</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tablaMC"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {{-- Incremento Porcentual --}}
-        <div class="col-md-4 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">Incremento Porcentual</h5>
-                </div>
-                <div class="card-body">
-                    <p class="text-muted small" id="infoIP">Incremento promedio: -</p>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Mes</th>
-                                    <th class="text-end">Proyección</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tablaIP"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {{-- Incremento Absoluto --}}
-        <div class="col-md-4 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0">Incremento Absoluto</h5>
-                </div>
-                <div class="card-body">
-                    <p class="text-muted small" id="infoIA">Incremento promedio: -</p>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Mes</th>
-                                    <th class="text-end">Proyección</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tablaIA"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- Gráfico Comparativo --}}
-    <div class="card shadow-sm">
-        <div class="card-header bg-dark text-white">
-            <h5 class="mb-0">Gráfico Comparativo de Proyecciones</h5>
-        </div>
-        <div class="card-body">
-            <canvas id="chartProyecciones" style="max-height: 400px;"></canvas>
-        </div>
-    </div>
-</div>
-
 @endsection
 
 @section('scripts')
@@ -218,14 +274,14 @@
 $(document).ready(function() {
     let chart = null;
 
-    // Cambiar entre formulario manual y excel
+    // Alternar entre formulario manual y excel
     $('input[name="metodoEntrada"]').change(function() {
         if ($(this).val() === 'manual') {
-            $('#formManual').show();
-            $('#formExcel').hide();
+            $('#formManual').removeClass('hidden');
+            $('#formExcel').addClass('hidden');
         } else {
-            $('#formManual').hide();
-            $('#formExcel').show();
+            $('#formManual').addClass('hidden');
+            $('#formExcel').removeClass('hidden');
         }
     });
 
@@ -240,12 +296,10 @@ $(document).ready(function() {
         }
     });
 
-    // Proyección con datos manuales
     function proyectarManual() {
         const datos = {};
         let conteo = 0;
 
-        // Recoger datos de los inputs
         for (let i = 1; i <= 12; i++) {
             const valor = $('#mes' + i).val();
             if (valor !== '' && valor !== null) {
@@ -254,29 +308,25 @@ $(document).ready(function() {
             }
         }
 
-        // Validar que haya al menos 11 meses
         if (conteo < 11) {
-            mostrarAlerta('danger', 'Debe ingresar al menos 11 meses de datos');
+            mostrarAlerta('danger', 'Debe ingresar al menos 11 meses de datos históricos.');
             return;
         }
 
-        // Enviar datos al servidor
         enviarDatos({ datos_manuales: datos });
     }
 
-    // Proyección con archivo Excel
     function proyectarExcel() {
         const archivo = $('#archivoExcel')[0].files[0];
         
         if (!archivo) {
-            mostrarAlerta('danger', 'Debe seleccionar un archivo Excel');
+            mostrarAlerta('danger', 'Debe seleccionar un archivo Excel en formato válido.');
             return;
         }
 
         const formData = new FormData();
         formData.append('archivo', archivo);
 
-        // Enviar archivo al servidor
         $.ajax({
             url: '{{ route("proyeccion.proyectar") }}',
             method: 'POST',
@@ -287,25 +337,24 @@ $(document).ready(function() {
                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
             beforeSend: function() {
-                $('#btnProyectar').prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Procesando...');
+                $('#btnProyectar').prop('disabled', true).html('<i class="bi bi-arrow-repeat animate-spin"></i> Procesando datos...');
             },
             success: function(response) {
                 if (response.success) {
                     mostrarResultados(response.data);
-                    mostrarAlerta('success', 'Proyección generada exitosamente');
+                    mostrarAlerta('success', 'Proyección generada exitosamente.');
                 }
             },
             error: function(xhr) {
-                const mensaje = xhr.responseJSON?.message || 'Error al procesar el archivo';
+                const mensaje = xhr.responseJSON?.message || 'Error al procesar el archivo cargado.';
                 mostrarAlerta('danger', mensaje);
             },
             complete: function() {
-                $('#btnProyectar').prop('disabled', false).html('<i class="bi bi-graph-up-arrow"></i> Generar Proyección');
+                $('#btnProyectar').prop('disabled', false).html('<i class="bi bi-graph-up-arrow text-sm"></i> Generar Proyección');
             }
         });
     }
 
-    // Enviar datos al servidor
     function enviarDatos(datos) {
         $.ajax({
             url: '{{ route("proyeccion.proyectar") }}',
@@ -316,72 +365,63 @@ $(document).ready(function() {
                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
             beforeSend: function() {
-                $('#btnProyectar').prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Procesando...');
+                $('#btnProyectar').prop('disabled', true).html('<i class="bi bi-arrow-repeat animate-spin"></i> Procesando datos...');
             },
             success: function(response) {
                 if (response.success) {
                     mostrarResultados(response.data);
-                    mostrarAlerta('success', 'Proyección generada exitosamente');
+                    mostrarAlerta('success', 'Proyección generada exitosamente.');
                 }
             },
             error: function(xhr) {
-                const mensaje = xhr.responseJSON?.message || 'Error al generar la proyección';
+                const mensaje = xhr.responseJSON?.message || 'Error al calcular la proyección estadística.';
                 mostrarAlerta('danger', mensaje);
             },
             complete: function() {
-                $('#btnProyectar').prop('disabled', false).html('<i class="bi bi-graph-up-arrow"></i> Generar Proyección');
+                $('#btnProyectar').prop('disabled', false).html('<i class="bi bi-graph-up-arrow text-sm"></i> Generar Proyección');
             }
         });
     }
 
-    // Mostrar resultados
     function mostrarResultados(data) {
-        // Estadísticas
         $('#statPromedio').text('$' + formatNumber(data.estadisticas.promedio));
         $('#statMaximo').text('$' + formatNumber(data.estadisticas.maximo));
         $('#statMinimo').text('$' + formatNumber(data.estadisticas.minimo));
         $('#statDesviacion').text('$' + formatNumber(data.estadisticas.desviacion_estandar));
         $('#statTendencia').text(data.estadisticas.tendencia_general);
 
-        // Mínimos Cuadrados
         const mc = data.proyecciones.minimos_cuadrados;
         $('#formulaMC').text('Fórmula: ' + mc.formula);
         llenarTabla('#tablaMC', mc.proyecciones);
 
-        // Incremento Porcentual
         const ip = data.proyecciones.incremento_porcentual;
         $('#infoIP').text('Incremento promedio: ' + ip.incremento_promedio);
         llenarTabla('#tablaIP', ip.proyecciones);
 
-        // Incremento Absoluto
         const ia = data.proyecciones.incremento_absoluto;
         $('#infoIA').text('Incremento promedio: $' + formatNumber(ia.incremento_promedio));
         llenarTabla('#tablaIA', ia.proyecciones);
 
-        // Gráfico
         crearGrafico(data);
 
-        // Mostrar sección de resultados
-        $('#resultadosSection').show();
+        $('#resultadosSection').removeClass('hidden');
         $('html, body').animate({ scrollTop: $('#resultadosSection').offset().top - 20 }, 500);
     }
 
-    // Llenar tabla de proyecciones
     function llenarTabla(selector, proyecciones) {
         let html = '';
         const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
         
         for (let i = 1; i <= 12; i++) {
-            html += `<tr>
-                <td>${meses[i-1]}</td>
-                <td class="text-end fw-bold">$${formatNumber(proyecciones[i])}</td>
+            html += `<tr class="hover:bg-slate-50 transition">
+                <td class="py-2 px-4 text-slate-700 font-medium">${meses[i-1]}</td>
+                <td class="py-2 px-4 text-right font-mono font-bold text-slate-900">$${formatNumber(proyecciones[i])}</td>
             </tr>`;
         }
         
         $(selector).html(html);
     }
 
-    // Crear gráfico
     function crearGrafico(data) {
         const ctx = document.getElementById('chartProyecciones').getContext('2d');
         
@@ -403,69 +443,95 @@ $(document).ready(function() {
                     {
                         label: 'Mínimos Cuadrados',
                         data: mc,
-                        borderColor: 'rgb(13, 110, 253)',
-                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                        tension: 0.4
+                        borderColor: '#0891b2', // cyan-600
+                        backgroundColor: 'rgba(8, 145, 178, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3
                     },
                     {
                         label: 'Incremento Porcentual',
                         data: ip,
-                        borderColor: 'rgb(25, 135, 84)',
-                        backgroundColor: 'rgba(25, 135, 84, 0.1)',
-                        tension: 0.4
+                        borderColor: '#059669', // emerald-600
+                        backgroundColor: 'rgba(5, 150, 105, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3
                     },
                     {
                         label: 'Incremento Absoluto',
                         data: ia,
-                        borderColor: 'rgb(255, 193, 7)',
-                        backgroundColor: 'rgba(255, 193, 7, 0.1)',
-                        tension: 0.4
+                        borderColor: '#d97706', // amber-600
+                        backgroundColor: 'rgba(217, 119, 6, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3
                     }
                 ]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: true,
+                maintainAspectRatio: false,
                 plugins: {
                     legend: {
                         position: 'top',
+                        labels: { font: { family: 'ui-sans-serif, system-ui', size: 12 } }
                     },
                     title: {
                         display: true,
-                        text: 'Proyecciones de Ventas - Próximos 12 Meses'
+                        text: 'Comparativo de Métodos de Proyección (Próximos 12 Meses)',
+                        color: '#0f172a',
+                        font: { size: 13, weight: 'bold', family: 'ui-sans-serif, system-ui' }
                     }
                 },
                 scales: {
                     y: {
                         beginAtZero: false,
+                        grid: { color: '#f1f5f9' },
                         ticks: {
+                            font: { family: 'ui-monospace, SFMono-Regular', size: 11 },
                             callback: function(value) {
                                 return '$' + formatNumber(value);
                             }
                         }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { family: 'ui-sans-serif, system-ui', size: 11 } }
                     }
                 }
             }
         });
     }
 
-    // Formatear números
     function formatNumber(num) {
         return parseFloat(num).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
     }
 
-    // Mostrar alertas
     function mostrarAlerta(tipo, mensaje) {
+        const bgColors = {
+            danger: 'bg-rose-50 border-rose-200 text-rose-800',
+            success: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+            warning: 'bg-amber-50 border-amber-200 text-amber-800'
+        };
+        const iconTypes = {
+            danger: 'bi-x-circle-fill text-rose-600',
+            success: 'bi-check-circle-fill text-emerald-600',
+            warning: 'bi-exclamation-triangle-fill text-amber-600'
+        };
+
         const alerta = `
-            <div class="alert alert-${tipo} alert-dismissible fade show" role="alert">
-                ${mensaje}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <div class="flex items-center justify-between p-4 rounded-xl border text-xs font-medium shadow-sm transition-all duration-300 ${bgColors[tipo] || bgColors.warning}">
+                <div class="flex items-center gap-2.5">
+                    <i class="bi ${iconTypes[tipo] || iconTypes.warning} text-base"></i>
+                    <span>${mensaje}</span>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-slate-700 transition" onclick="this.parentElement.remove()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
             </div>
         `;
         $('#alertContainer').html(alerta);
         
         setTimeout(() => {
-            $('.alert').fadeOut();
+            $('#alertContainer .border').fadeOut(300, function() { $(this).remove(); });
         }, 5000);
     }
 });

@@ -1,606 +1,425 @@
 @extends('layouts.app')
-@section('title', 'Listado de Balances')
+
+@section('title', 'Comparación de Ratios')
 
 @section('content')
+<div class="space-y-6">
 
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Comparación de Ratios - Economy Manager</title>
-    <link rel="stylesheet" href="{{ asset('css/estilo-comparacion-ratios.css') }}">
-
-<style>
-    
-        .header {
-            color: black;
-            padding: 25px 30px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 28px;
-            font-weight: 600;
-        }
-
-        .content {
-            padding: 30px;
-        }
-
-        .comparison-section {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-bottom: 30px;
-        }
-
-        .empresa-card {
-            background-color: #f8f9fa;
-            border: 2px solid rgb(13, 110, 253);
-            border-radius: 8px;
-            padding: 25px;
-        }
-
-        .empresa-card h2 {
-            color: rgb(13, 110, 253);
-            font-size: 20px;
-            margin-bottom: 20px;
-            text-align: center;
-            font-weight: 600;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 500;
-            font-size: 14px;
-        }
-
-        .form-group select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: border-color 0.3s;
-            background-color: white;
-        }
-
-        .form-group select:focus {
-            outline: none;
-            border-color: rgb(13, 110, 253);
-        }
-
-        .form-group select:disabled {
-            background-color: #f0f0f0;
-            cursor: not-allowed;
-        }
-
-        .btn-comparar {
-            width: 100%;
-            padding: 15px;
-            background-color: rgb(13, 110, 253);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            margin-top: 20px;
-        }
-
-        .btn-comparar:hover {
-            background-color: rgb(10, 88, 202);
-        }
-
-        .btn-comparar:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            color: rgb(13, 110, 253);
-            font-size: 16px;
-            margin: 20px 0;
-        }
-
-        .loading.active {
-            display: block;
-        }
-
-        .alert {
-            padding: 15px 20px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .alert.active {
-            display: block;
-        }
-
-        .alert-error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .alert-info {
-            background-color: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-
-        .results-section {
-            display: none;
-            margin-top: 30px;
-        }
-
-        .results-section.active {
-            display: block;
-        }
-
-        .results-header {
-            background-color: rgb(13, 110, 253);
-            color: white;
-            padding: 15px 20px;
-            border-radius: 6px 6px 0 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .results-header h3 {
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        .empresa-info {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            padding: 20px;
-            background-color: #f8f9fa;
-            border: 1px solid #e0e0e0;
-            border-top: none;
-        }
-
-        .info-card {
-            background-color: white;
-            padding: 15px;
-            border-radius: 6px;
-            border: 1px solid #e0e0e0;
-        }
-
-        .info-card h4 {
-            color: rgb(13, 110, 253);
-            font-size: 16px;
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-
-        .info-card p {
-            color: #666;
-            font-size: 14px;
-            margin: 5px 0;
-        }
-
-        .info-card strong {
-            color: #333;
-        }
-
-        .table-container {
-            overflow-x: auto;
-            border: 1px solid #e0e0e0;
-            border-top: none;
-            border-radius: 0 0 6px 6px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background-color: white;
-        }
-
-        thead {
-            background-color: rgb(13, 110, 253);
-            color: white;
-        }
-
-        th {
-            padding: 15px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        th:last-child {
-            text-align: center;
-        }
-
-        td {
-            padding: 12px 15px;
-            border-bottom: 1px solid #e0e0e0;
-            font-size: 14px;
-        }
-
-        tbody tr:hover {
-            background-color: #f8f9fa;
-        }
-
-        tbody tr:last-child td {
-            border-bottom: none;
-        }
-
-        .valor-positivo {
-            color: #28a745;
-            font-weight: 600;
-        }
-
-        .valor-negativo {
-            color: #dc3545;
-            font-weight: 600;
-        }
-
-        .diferencia-cell {
-            text-align: center;
-            font-weight: 600;
-        }
-
-        .sin-datos {
-            color: #999;
-            font-style: italic;
-        }
-
-        @media (max-width: 768px) {
-            .comparison-section {
-                grid-template-columns: 1fr;
-            }
-
-            .empresa-info {
-                grid-template-columns: 1fr;
-            }
-        }
-</style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>Comparación de Ratios Financieros</h1>
+    <!-- Encabezado Principal y Breadcrumbs -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="space-y-1">
+            <nav class="flex items-center gap-2 text-xs text-slate-400 font-medium mb-1">
+                <a href="{{ route('dashboard') }}" class="hover:text-cyan-600 transition">Inicio</a>
+                <i class="bi bi-chevron-right text-[10px]"></i>
+                <a href="{{ route('ratios.index') }}" class="hover:text-cyan-600 transition">Ratios Financieros</a>
+                <i class="bi bi-chevron-right text-[10px]"></i>
+                <span class="text-slate-600 font-semibold">Comparación Interempresarial</span>
+            </nav>
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-xl bg-cyan-500/10 text-cyan-600 border border-cyan-500/20 flex items-center justify-center font-bold">
+                    <i class="bi bi-arrows-collapse text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 tracking-tight">Comparación de Ratios Financieros</h1>
+                    <p class="text-xs text-slate-500">Evaluación frente a frente de indicadores entre dos empresas o periodos</p>
+                </div>
+            </div>
         </div>
 
-        <div class="content">
-            <div class="alert alert-error" id="alertError"></div>
-            <div class="alert alert-info" id="alertInfo"></div>
+        <a href="{{ route('ratios.index') }}" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition self-start sm:self-auto">
+            <i class="bi bi-arrow-left text-sm"></i>
+            Volver a Ratios
+        </a>
+    </div>
 
-            <div class="comparison-section">
+    <!-- Contenedor para Mensajes y Alertas AJAX -->
+    <div id="alertError" class="hidden p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center gap-2 shadow-sm">
+        <i class="bi bi-exclamation-octagon-fill text-rose-600 text-base shrink-0"></i>
+        <span id="alertErrorText"></span>
+    </div>
+
+    <div id="alertInfo" class="hidden p-4 rounded-xl bg-cyan-50 border border-cyan-200 text-cyan-800 text-xs font-medium flex items-center gap-2 shadow-sm">
+        <i class="bi bi-info-circle-fill text-cyan-600 text-base shrink-0"></i>
+        <span id="alertInfoText"></span>
+    </div>
+
+    <!-- Sección de Selección de Empresas (Grid de 2 Columnas) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Empresa A -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+            <div class="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                <div class="h-7 w-7 rounded-lg bg-cyan-500/10 text-cyan-600 font-bold flex items-center justify-center text-xs">
+                    A
+                </div>
+                <h3 class="font-bold text-sm text-slate-900">Empresa A (Base de Cotejo)</h3>
+            </div>
+
+            <div class="space-y-3">
+                <!-- Sector A -->
+                <div>
+                    <label for="sectorA" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        Sector *
+                    </label>
+                    <select id="sectorA" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition bg-white">
+                        <option value="">Seleccione un sector</option>
+                    </select>
+                </div>
+
                 <!-- Empresa A -->
-                <div class="empresa-card">
-                    <h2>Empresa A</h2>
-                    
-                    <div class="form-group">
-                        <label for="sectorA">Sector *</label>
-                        <select id="sectorA">
-                            <option value="">Seleccione un sector</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="empresaA">Empresa *</label>
-                        <select id="empresaA" disabled>
-                            <option value="">Primero seleccione un sector</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="anioA">Año *</label>
-                        <select id="anioA" disabled>
-                            <option value="">Primero seleccione una empresa</option>
-                        </select>
-                    </div>
+                <div>
+                    <label for="empresaA" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        Empresa *
+                    </label>
+                    <select id="empresaA" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition bg-white disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed" disabled>
+                        <option value="">Primero seleccione un sector</option>
+                    </select>
                 </div>
 
+                <!-- Año A -->
+                <div>
+                    <label for="anioA" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        Año Fiscal *
+                    </label>
+                    <select id="anioA" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 font-mono focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition bg-white disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed" disabled>
+                        <option value="">Primero seleccione una empresa</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empresa B -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+            <div class="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                <div class="h-7 w-7 rounded-lg bg-slate-900 text-cyan-400 font-bold flex items-center justify-center text-xs">
+                    B
+                </div>
+                <h3 class="font-bold text-sm text-slate-900">Empresa B (A Comparar)</h3>
+            </div>
+
+            <div class="space-y-3">
                 <!-- Empresa B -->
-                <div class="empresa-card">
-                    <h2>Empresa B</h2>
+                <div>
+                    <label for="empresaB" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        Empresa *
+                    </label>
+                    <select id="empresaB" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition bg-white">
+                        <option value="">Seleccione una empresa</option>
+                    </select>
+                </div>
 
-                    <div class="form-group">
-                        <label for="empresaB">Empresa *</label>
-                        <select id="empresaB">
-                            <option value="">Seleccione una empresa</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="anioB">Año *</label>
-                        <select id="anioB" disabled>
-                            <option value="">Primero seleccione una empresa</option>
-                        </select>
-                    </div>
+                <!-- Año B -->
+                <div>
+                    <label for="anioB" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        Año Fiscal *
+                    </label>
+                    <select id="anioB" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 font-mono focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition bg-white disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed" disabled>
+                        <option value="">Primero seleccione una empresa</option>
+                    </select>
                 </div>
             </div>
+        </div>
 
-            <button class="btn-comparar" id="btnComparar" disabled>Comparar Ratios</button>
+    </div>
 
-            <div class="loading" id="loading">
-                <p> Cargando comparación...</p>
-            </div>
+    <!-- Botón de Ejecución -->
+    <div class="flex flex-col items-center justify-center space-y-3">
+        <button id="btnComparar" class="w-full sm:w-auto px-8 py-3 rounded-xl text-xs font-bold text-white bg-cyan-600 hover:bg-cyan-700 active:bg-cyan-800 disabled:bg-slate-300 disabled:cursor-not-allowed transition shadow-md flex items-center justify-center gap-2" disabled>
+            <i class="bi bi-lightning-charge-fill text-sm"></i>
+            Comparar Ratios Financieros
+        </button>
 
-            <!-- Sección de Resultados -->
-            <div class="results-section" id="resultsSection">
-                <div class="results-header">
-                    <h3>Resultados de la Comparación</h3>
-                    <span id="totalRatios"></span>
-                </div>
-
-                <div class="empresa-info">
-                    <div class="info-card">
-                        <h4>Empresa A</h4>
-                        <p><strong>Nombre:</strong> <span id="infoNombreA"></span></p>
-                        <p><strong>NIT:</strong> <span id="infoNitA"></span></p>
-                        <p><strong>Sector:</strong> <span id="infoSectorA"></span></p>
-                        <p><strong>Año:</strong> <span id="infoAnioA"></span></p>
-                    </div>
-
-                    <div class="info-card">
-                        <h4>Empresa B</h4>
-                        <p><strong>Nombre:</strong> <span id="infoNombreB"></span></p>
-                        <p><strong>NIT:</strong> <span id="infoNitB"></span></p>
-                        <p><strong>Sector:</strong> <span id="infoSectorB"></span></p>
-                        <p><strong>Año:</strong> <span id="infoAnioB"></span></p>
-                    </div>
-                </div>
-
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Ratio</th>
-                                <th>Empresa A</th>
-                                <th>Empresa B</th>
-                                <th>+/-</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableBody">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+        <div id="loading" class="hidden items-center gap-2 text-xs font-semibold text-cyan-600">
+            <i class="bi bi-arrow-repeat animate-spin text-base"></i>
+            <span>Procesando métricas y variaciones interempresariales...</span>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-        $(document).ready(function() {
-            // Configurar CSRF token para todas las peticiones AJAX
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                }
-            });
+    <!-- Sección de Resultados (Oculta por defecto) -->
+    <div id="resultsSection" class="hidden space-y-6 pt-4">
 
-            // Cargar sectores al iniciar
-            cargarSectores();
-            cargarTodasEmpresas();
+        <!-- Header de Resultados -->
+        <div class="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 shadow-lg">
+            <div class="flex items-center gap-2.5">
+                <i class="bi bi-file-earmark-diff text-cyan-400 text-lg"></i>
+                <h3 class="font-bold text-sm tracking-wide">Resultados del Análisis Comparativo</h3>
+            </div>
+            <span id="totalRatios" class="px-3 py-1 rounded-md bg-slate-800 border border-slate-700 font-mono text-xs font-semibold text-cyan-300"></span>
+        </div>
 
-            // Event listeners
-            $('#sectorA').change(function() {
-                const idSector = $(this).val();
-                if (idSector) {
-                    cargarEmpresasPorSector(idSector);
-                } else {
-                    $('#empresaA').html('<option value="">Primero seleccione un sector</option>').prop('disabled', true);
-                    $('#anioA').html('<option value="">Primero seleccione una empresa</option>').prop('disabled', true);
-                }
-                verificarFormularioCompleto();
-            });
+        <!-- Fichas de Información de Empresa A y B -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <!-- Info Empresa A -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 space-y-2 shadow-sm">
+                <h4 class="font-bold text-xs uppercase tracking-wider text-cyan-600 border-b border-slate-100 pb-2">Empresa A</h4>
+                <div class="space-y-1 text-xs text-slate-600">
+                    <p><strong class="text-slate-800">Nombre:</strong> <span id="infoNombreA"></span></p>
+                    <p><strong class="text-slate-800">NIT:</strong> <span id="infoNitA" class="font-mono"></span></p>
+                    <p><strong class="text-slate-800">Sector:</strong> <span id="infoSectorA"></span></p>
+                    <p><strong class="text-slate-800">Año:</strong> <span id="infoAnioA" class="font-mono"></span></p>
+                </div>
+            </div>
 
-            $('#empresaA').change(function() {
-                const idEmpresa = $(this).val();
-                if (idEmpresa) {
-                    cargarAniosDisponibles(idEmpresa, 'A');
-                } else {
-                    $('#anioA').html('<option value="">Primero seleccione una empresa</option>').prop('disabled', true);
-                }
-                verificarFormularioCompleto();
-            });
+            <!-- Info Empresa B -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 space-y-2 shadow-sm">
+                <h4 class="font-bold text-xs uppercase tracking-wider text-slate-900 border-b border-slate-100 pb-2">Empresa B</h4>
+                <div class="space-y-1 text-xs text-slate-600">
+                    <p><strong class="text-slate-800">Nombre:</strong> <span id="infoNombreB"></span></p>
+                    <p><strong class="text-slate-800">NIT:</strong> <span id="infoNitB" class="font-mono"></span></p>
+                    <p><strong class="text-slate-800">Sector:</strong> <span id="infoSectorB"></span></p>
+                    <p><strong class="text-slate-800">Año:</strong> <span id="infoAnioB" class="font-mono"></span></p>
+                </div>
+            </div>
 
-            $('#empresaB').change(function() {
-                const idEmpresa = $(this).val();
-                if (idEmpresa) {
-                    cargarAniosDisponibles(idEmpresa, 'B');
-                } else {
-                    $('#anioB').html('<option value="">Primero seleccione una empresa</option>').prop('disabled', true);
-                }
-                verificarFormularioCompleto();
-            });
+        </div>
 
-            $('#anioA, #anioB').change(function() {
-                verificarFormularioCompleto();
-            });
-
-            $('#btnComparar').click(function() {
-                compararRatios();
-            });
-
-            // Funciones
-            function cargarSectores() {
-                $.get('/comparacion-ratios/obtener-sectores', function(response) {
-                    if (response.success) {
-                        let options = '<option value="">Seleccione un sector</option>';
-                        response.data.forEach(sector => {
-                            options += `<option value="${sector.id_sector}">${sector.nombre_sector}</option>`;
-                        });
-                        $('#sectorA').html(options);
-                    }
-                }).fail(function() {
-                    mostrarError('Error al cargar los sectores');
-                });
-            }
-
-            function cargarEmpresasPorSector(idSector) {
-                $.get('/comparacion-ratios/obtener-empresas-sector', { id_sector: idSector }, function(response) {
-                    if (response.success) {
-                        let options = '<option value="">Seleccione una empresa</option>';
-                        response.data.forEach(empresa => {
-                            options += `<option value="${empresa.id_empresa}">${empresa.nombre_empresa} (${empresa.nit})</option>`;
-                        });
-                        $('#empresaA').html(options).prop('disabled', false);
-                        $('#anioA').html('<option value="">Primero seleccione una empresa</option>').prop('disabled', true);
-                    }
-                }).fail(function() {
-                    mostrarError('Error al cargar las empresas del sector');
-                });
-            }
-
-            function cargarTodasEmpresas() {
-                $.get('/comparacion-ratios/obtener-empresas', function(response) {
-                    if (response.success) {
-                        let options = '<option value="">Seleccione una empresa</option>';
-                        response.data.forEach(empresa => {
-                            const sector = empresa.sector ? ` - ${empresa.sector.nombre_sector}` : '';
-                            options += `<option value="${empresa.id_empresa}">${empresa.nombre_empresa} (${empresa.nit})${sector}</option>`;
-                        });
-                        $('#empresaB').html(options);
-                    }
-                }).fail(function() {
-                    mostrarError('Error al cargar las empresas');
-                });
-            }
-
-            function cargarAniosDisponibles(idEmpresa, empresa) {
-                $.get('/comparacion-ratios/obtener-anios', { id_empresa: idEmpresa }, function(response) {
-                    if (response.success) {
-                        let options = '<option value="">Seleccione un año</option>';
-                        response.data.forEach(anio => {
-                            options += `<option value="${anio}">${anio}</option>`;
-                        });
-                        $(`#anio${empresa}`).html(options).prop('disabled', false);
-                    }
-                }).fail(function() {
-                    mostrarError('Error al cargar los años disponibles');
-                });
-            }
-
-            function verificarFormularioCompleto() {
-                const sectorA = $('#sectorA').val();
-                const empresaA = $('#empresaA').val();
-                const anioA = $('#anioA').val();
-                const empresaB = $('#empresaB').val();
-                const anioB = $('#anioB').val();
-
-                if (sectorA && empresaA && anioA && empresaB && anioB) {
-                    $('#btnComparar').prop('disabled', false);
-                } else {
-                    $('#btnComparar').prop('disabled', true);
-                }
-            }
-
-            function compararRatios() {
-                const datos = {
-                    id_empresa_a: $('#empresaA').val(),
-                    anio_empresa_a: $('#anioA').val(),
-                    id_empresa_b: $('#empresaB').val(),
-                    anio_empresa_b: $('#anioB').val()
-                };
-
-                $('#loading').addClass('active');
-                $('#btnComparar').prop('disabled', true);
-                ocultarAlertas();
-
-                $.ajax({
-                    url: '/comparacion-ratios/comparar',
-                    method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(datos),
-                    success: function(response) {
-                        if (response.success) {
-                            mostrarResultados(response.data);
-                        }
-                    },
-                    error: function(xhr) {
-                        const mensaje = xhr.responseJSON?.message || 'Error al realizar la comparación';
-                        mostrarError(mensaje);
-                    },
-                    complete: function() {
-                        $('#loading').removeClass('active');
-                        $('#btnComparar').prop('disabled', false);
-                    }
-                });
-            }
-
-            function mostrarResultados(data) {
-                // Llenar información de empresas
-                $('#infoNombreA').text(data.empresa_a.nombre);
-                $('#infoNitA').text(data.empresa_a.nit);
-                $('#infoSectorA').text(data.empresa_a.sector);
-                $('#infoAnioA').text(data.empresa_a.anio);
-
-                $('#infoNombreB').text(data.empresa_b.nombre);
-                $('#infoNitB').text(data.empresa_b.nit);
-                $('#infoSectorB').text(data.empresa_b.sector);
-                $('#infoAnioB').text(data.empresa_b.anio);
-
-                $('#totalRatios').text(`${data.total_ratios} ratios comparados`);
-
-                // Llenar tabla
-                let tbody = '';
-                data.comparacion.forEach(ratio => {
-                    const valorA = ratio.valor_empresa_a !== null ? ratio.valor_empresa_a : '<span class="sin-datos">Sin datos</span>';
-                    const valorB = ratio.valor_empresa_b !== null ? ratio.valor_empresa_b : '<span class="sin-datos">Sin datos</span>';
-                    
-                    let diferencia = '<span class="sin-datos">N/A</span>';
-                    if (ratio.diferencia !== null) {
-                        const signo = ratio.diferencia >= 0 ? '+' : '';
-                        const clase = ratio.diferencia >= 0 ? 'valor-positivo' : 'valor-negativo';
-                        diferencia = `<span class="${clase}">${signo}${ratio.diferencia}</span>`;
-                        
-                        if (ratio.porcentaje_diferencia !== null) {
-                            diferencia += `<br><small>(${signo}${ratio.porcentaje_diferencia}%)</small>`;
-                        }
-                    }
-
-                    tbody += `
-                        <tr>
-                            <td><strong>${ratio.nombre_ratio}</strong></td>
-                            <td>${valorA}</td>
-                            <td>${valorB}</td>
-                            <td class="diferencia-cell">${diferencia}</td>
+        <!-- Tabla de Comparación de Ratios -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="w-full overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-full">
+                    <thead>
+                        <tr class="bg-slate-900 text-white text-xs uppercase tracking-wider border-b border-slate-800">
+                            <th class="py-3.5 px-6 font-semibold w-4/12">Ratio Financiero</th>
+                            <th class="py-3.5 px-6 font-semibold w-3/12 text-center">Empresa A</th>
+                            <th class="py-3.5 px-6 font-semibold w-3/12 text-center">Empresa B</th>
+                            <th class="py-3.5 px-6 font-semibold w-2/12 text-center">Diferencia (+/-)</th>
                         </tr>
-                    `;
-                });
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100 text-sm">
+                        <!-- Generado dinámicamente mediante jQuery -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-                $('#tableBody').html(tbody);
-                $('#resultsSection').addClass('active');
+    </div>
 
-                // Scroll suave hacia los resultados
-                $('html, body').animate({
-                    scrollTop: $('#resultsSection').offset().top - 20
-                }, 500);
-            }
+</div>
+@endsection
 
-            function mostrarError(mensaje) {
-                $('#alertError').text(mensaje).addClass('active');
-                setTimeout(() => {
-                    $('#alertError').removeClass('active');
-                }, 5000);
-            }
-
-            function ocultarAlertas() {
-                $('.alert').removeClass('active');
+@section('scripts')
+<script>
+    $(document).ready(function() {
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             }
         });
-    </script>
-</body>
-</html>
+
+        cargarSectores();
+        cargarTodasEmpresas();
+
+        $('#sectorA').change(function() {
+            const idSector = $(this).val();
+            if (idSector) {
+                cargarEmpresasPorSector(idSector);
+            } else {
+                $('#empresaA').html('<option value="">Primero seleccione un sector</option>').prop('disabled', true);
+                $('#anioA').html('<option value="">Primero seleccione una empresa</option>').prop('disabled', true);
+            }
+            verificarFormularioCompleto();
+        });
+
+        $('#empresaA').change(function() {
+            const idEmpresa = $(this).val();
+            if (idEmpresa) {
+                cargarAniosDisponibles(idEmpresa, 'A');
+            } else {
+                $('#anioA').html('<option value="">Primero seleccione una empresa</option>').prop('disabled', true);
+            }
+            verificarFormularioCompleto();
+        });
+
+        $('#empresaB').change(function() {
+            const idEmpresa = $(this).val();
+            if (idEmpresa) {
+                cargarAniosDisponibles(idEmpresa, 'B');
+            } else {
+                $('#anioB').html('<option value="">Primero seleccione una empresa</option>').prop('disabled', true);
+            }
+            verificarFormularioCompleto();
+        });
+
+        $('#anioA, #anioB').change(function() {
+            verificarFormularioCompleto();
+        });
+
+        $('#btnComparar').click(function() {
+            compararRatios();
+        });
+
+        function cargarSectores() {
+            $.get('/comparacion-ratios/obtener-sectores', function(response) {
+                if (response.success) {
+                    let options = '<option value="">Seleccione un sector</option>';
+                    response.data.forEach(sector => {
+                        options += `<option value="${sector.id_sector}">${sector.nombre_sector}</option>`;
+                    });
+                    $('#sectorA').html(options);
+                }
+            }).fail(function() {
+                mostrarError('Error al cargar la lista de sectores.');
+            });
+        }
+
+        function cargarEmpresasPorSector(idSector) {
+            $.get('/comparacion-ratios/obtener-empresas-sector', { id_sector: idSector }, function(response) {
+                if (response.success) {
+                    let options = '<option value="">Seleccione una empresa</option>';
+                    response.data.forEach(empresa => {
+                        options += `<option value="${empresa.id_empresa}">${empresa.nombre_empresa} (${empresa.nit})</option>`;
+                    });
+                    $('#empresaA').html(options).prop('disabled', false);
+                    $('#anioA').html('<option value="">Primero seleccione una empresa</option>').prop('disabled', true);
+                }
+            }).fail(function() {
+                mostrarError('Error al cargar las empresas pertenecientes al sector.');
+            });
+        }
+
+        function cargarTodasEmpresas() {
+            $.get('/comparacion-ratios/obtener-empresas', function(response) {
+                if (response.success) {
+                    let options = '<option value="">Seleccione una empresa</option>';
+                    response.data.forEach(empresa => {
+                        const sector = empresa.sector ? ` - ${empresa.sector.nombre_sector}` : '';
+                        options += `<option value="${empresa.id_empresa}">${empresa.nombre_empresa} (${empresa.nit})${sector}</option>`;
+                    });
+                    $('#empresaB').html(options);
+                }
+            }).fail(function() {
+                mostrarError('Error al cargar el listado general de empresas.');
+            });
+        }
+
+        function cargarAniosDisponibles(idEmpresa, empresa) {
+            $.get('/comparacion-ratios/obtener-anios', { id_empresa: idEmpresa }, function(response) {
+                if (response.success) {
+                    let options = '<option value="">Seleccione un año</option>';
+                    response.data.forEach(anio => {
+                        options += `<option value="${anio}">${anio}</option>`;
+                    });
+                    $(`#anio${empresa}`).html(options).prop('disabled', false);
+                }
+            }).fail(function() {
+                mostrarError('Error al cargar los años disponibles para la empresa.');
+            });
+        }
+
+        function verificarFormularioCompleto() {
+            const sectorA = $('#sectorA').val();
+            const empresaA = $('#empresaA').val();
+            const anioA = $('#anioA').val();
+            const empresaB = $('#empresaB').val();
+            const anioB = $('#anioB').val();
+
+            if (sectorA && empresaA && anioA && empresaB && anioB) {
+                $('#btnComparar').prop('disabled', false);
+            } else {
+                $('#btnComparar').prop('disabled', true);
+            }
+        }
+
+        function compararRatios() {
+            const datos = {
+                id_empresa_a: $('#empresaA').val(),
+                anio_empresa_a: $('#anioA').val(),
+                id_empresa_b: $('#empresaB').val(),
+                anio_empresa_b: $('#anioB').val()
+            };
+
+            $('#loading').removeClass('hidden').addClass('flex');
+            $('#btnComparar').prop('disabled', true);
+            ocultarAlertas();
+
+            $.ajax({
+                url: '/comparacion-ratios/comparar',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(datos),
+                success: function(response) {
+                    if (response.success) {
+                        mostrarResultados(response.data);
+                    }
+                },
+                error: function(xhr) {
+                    const mensaje = xhr.responseJSON?.message || 'Error al procesar la comparación interempresarial.';
+                    mostrarError(mensaje);
+                },
+                complete: function() {
+                    $('#loading').addClass('hidden').removeClass('flex');
+                    $('#btnComparar').prop('disabled', false);
+                }
+            });
+        }
+
+        function mostrarResultados(data) {
+            $('#infoNombreA').text(data.empresa_a.nombre);
+            $('#infoNitA').text(data.empresa_a.nit);
+            $('#infoSectorA').text(data.empresa_a.sector);
+            $('#infoAnioA').text(data.empresa_a.anio);
+
+            $('#infoNombreB').text(data.empresa_b.nombre);
+            $('#infoNitB').text(data.empresa_b.nit);
+            $('#infoSectorB').text(data.empresa_b.sector);
+            $('#infoAnioB').text(data.empresa_b.anio);
+
+            $('#totalRatios').text(`${data.total_ratios} ratios evaluados`);
+
+            let tbody = '';
+            data.comparacion.forEach(ratio => {
+                const valorA = ratio.valor_empresa_a !== null ? `<span class="font-mono font-bold text-slate-800">${ratio.valor_empresa_a}</span>` : '<span class="text-slate-400 italic text-xs">Sin datos</span>';
+                const valorB = ratio.valor_empresa_b !== null ? `<span class="font-mono font-bold text-slate-800">${ratio.valor_empresa_b}</span>` : '<span class="text-slate-400 italic text-xs">Sin datos</span>';
+                
+                let diferencia = '<span class="text-slate-400 italic text-xs">N/A</span>';
+                if (ratio.diferencia !== null) {
+                    const signo = ratio.diferencia >= 0 ? '+' : '';
+                    const colorClase = ratio.diferencia >= 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60' : 'bg-rose-50 text-rose-700 border-rose-200/60';
+                    
+                    let porcentajeHTML = '';
+                    if (ratio.porcentaje_diferencia !== null) {
+                        porcentajeHTML = `<span class="text-[10px] opacity-80 block">${signo}${ratio.porcentaje_diferencia}%</span>`;
+                    }
+
+                    diferencia = `
+                        <span class="inline-flex flex-col items-center justify-center px-2.5 py-1 rounded-md border font-mono font-bold text-xs ${colorClase}">
+                            <span>${signo}${ratio.diferencia}</span>
+                            ${porcentajeHTML}
+                        </span>
+                    `;
+                }
+
+                tbody += `
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <td class="py-3.5 px-6 font-medium text-slate-800">${ratio.nombre_ratio}</td>
+                        <td class="py-3.5 px-6 text-center">${valorA}</td>
+                        <td class="py-3.5 px-6 text-center">${valorB}</td>
+                        <td class="py-3.5 px-6 text-center whitespace-nowrap">${diferencia}</td>
+                    </tr>
+                `;
+            });
+
+            $('#tableBody').html(tbody);
+            $('#resultsSection').removeClass('hidden');
+
+            $('html, body').animate({
+                scrollTop: $('#resultsSection').offset().top - 20
+            }, 500);
+        }
+
+        function mostrarError(mensaje) {
+            $('#alertErrorText').text(mensaje);
+            $('#alertError').removeClass('hidden');
+            setTimeout(() => {
+                $('#alertError').addClass('hidden');
+            }, 5000);
+        }
+
+        function ocultarAlertas() {
+            $('#alertError').addClass('hidden');
+            $('#alertInfo').addClass('hidden');
+        }
+    });
+</script>
 @endsection

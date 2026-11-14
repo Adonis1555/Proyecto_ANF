@@ -107,8 +107,57 @@ class CatalogoController extends Controller
 
     public function destroy($id)
     {
-        Catalogo::destroy($id);
-        return redirect()->route('catalogo.index')->with('success', 'La cuenta ha sido eliminada');
+         // Obtener la empresa del usuario autenticado
+     $usuario = Usuario::find(session('usuario_id'));
+ 
+     if (!$usuario || !$usuario->id_empresa) {
+         abort(403, 'No tienes una empresa asignada.');
+     }
+ 
+     // Buscar la cuenta únicamente dentro de su empresa
+     $catalogo = Catalogo::where(
+         'empresa_id_empresa',
+         $usuario->id_empresa
+     )->findOrFail($id);
+ 
+     // Comprobar si la cuenta está siendo utilizada
+     if ($catalogo->reportesFinancieros()->exists()) {
+         return redirect()
+             ->route('catalogo.index')
+             ->with(
+                 'warning',
+                 'No se puede eliminar la cuenta "' .
+                 $catalogo->nombre_cuenta .
+                 '" porque ya está siendo utilizada en uno o más estados financieros.'
+             );
+     }
+
+     try {
+         // Eliminar únicamente si no tiene reportes asociados
+         $catalogo->delete();
+ 
+         return redirect()
+             ->route('catalogo.index')
+             ->with(
+                 'success',
+                 'La cuenta ha sido eliminada correctamente.'
+             );
+ 
+     } catch (QueryException $e) {
+ 
+         // Error 1451: otra tabla utiliza esta cuenta
+         if ((int) ($e->errorInfo[1] ?? 0) === 1451) {
+             return redirect()
+                 ->route('catalogo.index')
+                 ->with(
+                     'warning',
+                     'No se puede eliminar esta cuenta porque ya está siendo utilizada en el sistema.'
+                 );
+         }
+ 
+         // Otros errores deben seguir siendo visibles
+         throw $e;
+     }
     }
 
     public function importarVista()

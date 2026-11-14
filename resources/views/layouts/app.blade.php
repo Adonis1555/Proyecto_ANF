@@ -88,25 +88,46 @@
                         </div>
                     </div>
 
+                  
                     <!-- Dropdown: Análisis Financiero -->
                     <div class="relative" x-data="{ open: false }">
-                        <button @click="open = !open" @click.outside="open = false" type="button" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition whitespace-nowrap">
-                            <span class="{{ request()->routeIs('analisis.*') ? 'text-cyan-400 font-semibold' : '' }}">Análisis</span>
-                            <i class="bi bi-chevron-down text-xs text-slate-400 transition" :class="{ 'rotate-180': open }"></i>
+                        <button @click="open = !open"
+                                @click.outside="open = false"
+                                type="button"
+                                class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition whitespace-nowrap">
+                    
+                            <span class="{{ request()->routeIs('analisis.*') ? 'text-cyan-400 font-semibold' : '' }}">
+                                Análisis
+                            </span>
+                    
+                            <i class="bi bi-chevron-down text-xs text-slate-400 transition"
+                               :class="{ 'rotate-180': open }"></i>
                         </button>
-                        <div x-show="open" x-cloak x-transition
+                    
+                        <div x-show="open"
+                             x-cloak
+                             x-transition
                              class="absolute left-0 mt-2 w-52 rounded-xl bg-white p-1.5 shadow-2xl ring-1 ring-black/5 z-50 text-left">
-                            <a href="{{ route('analisis.index') }}" class="block px-3 py-2 rounded-lg text-xs font-bold text-slate-900 hover:bg-cyan-50 hover:text-cyan-700 transition">Panel General</a>
+                    
+                            <a href="{{ route('analisis.index') }}"
+                               class="block px-3 py-2 rounded-lg text-xs font-bold text-slate-900 hover:bg-cyan-50 hover:text-cyan-700 transition">
+                                Panel General
+                            </a>
+                    
                             <div class="my-1 border-t border-slate-100"></div>
-                            <a href="{{ route('analisis.vertical') }}" class="block px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600 transition">Análisis Vertical</a>
-                            <a href="{{ route('analisis.horizontal') }}" class="block px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600 transition">Análisis Horizontal</a>
+                    
+                            <a href="{{ route('analisis.historial.vertical') }}"
+                               class="block px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600 transition">
+                                Análisis Vertical
+                            </a>
+                            
+                            <a href="{{ route('analisis.historial.horizontal') }}"
+                               class="block px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-600 transition">
+                                Análisis Horizontal
+                            </a>
                         </div>
                     </div>
 
-                    <a href="{{ route('proyeccion.index') }}" 
-                       class="px-2.5 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap {{ request()->routeIs('proyeccion.*') ? 'bg-cyan-500/10 text-cyan-400 font-semibold border border-cyan-500/20' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
-                       Proyección
-                    </a>
 
                     <!-- Dropdown: Ajustes -->
                     <div class="relative" x-data="{ open: false }">
@@ -209,10 +230,20 @@
             </div>
 
             <div class="pt-2 border-t border-slate-800/60">
-                <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-cyan-400">Análisis</p>
-                <a href="{{ route('analisis.index') }}" class="block px-3 py-1.5 text-xs text-slate-300 hover:text-white">Panel General</a>
-                <a href="{{ route('analisis.vertical') }}" class="block px-3 py-1.5 text-xs text-slate-300 hover:text-white">Análisis Vertical</a>
-                <a href="{{ route('analisis.horizontal') }}" class="block px-3 py-1.5 text-xs text-slate-300 hover:text-white">Análisis Horizontal</a>
+
+             <a href="{{ route('analisis.index') }}"
+                class="block px-3 py-1.5 text-xs text-slate-300 hover:text-white">
+                 Panel General
+             </a>
+             
+             <a href="{{ route('analisis.historial.vertical') }}">
+                 Análisis Vertical
+             </a>
+             
+             <a href="{{ route('analisis.historial.horizontal') }}"
+                class="block px-3 py-1.5 text-xs text-slate-300 hover:text-white">
+                 Análisis Horizontal
+             </a>
             </div>
 
             <a href="{{ route('proyeccion.index') }}" class="block px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white">Proyección</a>

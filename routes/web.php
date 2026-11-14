@@ -130,5 +130,11 @@ Route::prefix('analisis')->name('analisis.')->group(function () {
     
     // Opción combinada
     Route::post('/generar', [AnalisisFinancieroController::class, 'generar'])->name('generar');
+
+
+    Route::get('/historial-vertical', [AnalisisFinancieroController::class, 'historialVertical'])->name('historial.vertical');
+    
+    Route::get('/historial-horizontal', [AnalisisFinancieroController::class, 'historialHorizontal'])->name('historial.horizontal');
+
 });
 

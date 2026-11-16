@@ -15,7 +15,7 @@
                 Sistema de Gestión Financiera
             </div>
             <h1 class="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-                Bienvenido a <span class="text-cyan-400">EconomyManager</span>
+                Bienvenido al <span class="text-cyan-400">Sistema de Control Financiero</span>
             </h1>
             <p class="text-sm text-slate-300 leading-relaxed">
                 Plataforma ejecutiva para el análisis de estados financieros, cálculo automático de ratios y gestión masiva de estructuras contables.

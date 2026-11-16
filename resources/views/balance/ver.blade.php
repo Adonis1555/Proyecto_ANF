@@ -44,7 +44,7 @@
         // Agrupar por clasificación (primer dígito o primer bloque antes del punto)
         $clasificaciones = $balance->groupBy(function ($item) {
             $codigo = $item->catalogo->codigo_cuenta;
-            return preg_match('/^\d+(\.\d+)?$/', $codigo)
+            return str_contains($codigo, '.')
                 ? explode('.', $codigo)[0]
                 : substr($codigo, 0, 1);
         });
@@ -57,9 +57,10 @@
             // Agrupar por subgrupo (segundo bloque o primeros 2–4 dígitos)
             $subgrupos = $itemsClasificacion->groupBy(function ($item) {
                 $codigo = $item->catalogo->codigo_cuenta;
-                if (preg_match('/^\d+(\.\d+)?$/', $codigo)) {
+                if (str_contains($codigo, '.')) {
+                    // 1.1.01.01 -> 1.1.01 (rubro); 1.1 -> 1.1
                     $partes = explode('.', $codigo);
-                    return count($partes) >= 2 ? $partes[0] . '.' . $partes[1] : $partes[0];
+                    return implode('.', array_slice($partes, 0, count($partes) >= 3 ? 3 : 2));
                 } else {
                     return substr($codigo, 0, 4);
                 }

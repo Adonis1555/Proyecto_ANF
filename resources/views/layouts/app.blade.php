@@ -38,11 +38,11 @@
                 
                 <!-- 1. Marca / Logo Unificado -->
                 <div class="flex items-center gap-3 flex-shrink-0">
-                    <a href="{{ route('dashboard') }}" class="flex items-center gap-2 font-extrabold text-base sm:text-lg tracking-tight text-white hover:opacity-95 transition">
-                        <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black shadow-md shadow-cyan-500/20 flex-shrink-0">
-                            <i class="bi bi-graph-up-arrow text-sm"></i>
-                        </div>
-                        <span class="tracking-tight font-bold">Economy<span class="text-cyan-400 font-semibold">Manager</span></span>
+                    <a href="{{ route('dashboard') }}" class="flex items-center gap-3 hover:opacity-95 transition">
+                        <img src="{{ asset('images/logo.jpg') }}"
+                             alt="Miguel Angel Panameño - Construcción y Remodelación"
+                             class="h-14 w-14 rounded-full bg-white object-contain shadow-md flex-shrink-0">
+                        <span class="hidden sm:inline text-base xl:text-lg font-bold tracking-tight text-white whitespace-nowrap">Miguel Angel Panameño</span>
                     </a>
                 </div>
 
@@ -128,6 +128,11 @@
                         </div>
                     </div>
 
+
+                    <a href="{{ route('proyeccion.index') }}"
+                       class="px-2.5 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap {{ request()->routeIs('proyeccion.*') ? 'bg-cyan-500/10 text-cyan-400 font-semibold border border-cyan-500/20' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+                       Proyección
+                    </a>
 
                     <!-- Dropdown: Ajustes -->
                     <div class="relative" x-data="{ open: false }">

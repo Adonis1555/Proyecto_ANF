@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>EconomyManager — Inicio de Sesión</title>
+    <title>Miguel Angel Panameño — Inicio de Sesión</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <!-- Bootstrap Icons CDN -->
@@ -18,10 +18,10 @@
         
         <!-- Logo / Marca Superior -->
         <div class="text-center mb-8 space-y-2">
-            <div class="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-lg shadow-cyan-500/5 mb-2">
-                <i class="bi bi-graph-up-arrow text-2xl"></i>
-            </div>
-            <h1 class="text-2xl font-extrabold text-white tracking-tight">EconomyManager</h1>
+            <img src="{{ asset('images/logo.jpg') }}"
+                 alt="Miguel Angel Panameño - Construcción y Remodelación"
+                 class="mx-auto h-28 w-28 rounded-full bg-white object-contain shadow-lg mb-2">
+            <h1 class="text-2xl font-extrabold text-white tracking-tight">Miguel Angel Panameño</h1>
             <p class="text-xs text-slate-400">Sistema Integral de Gestión y Análisis Financiero</p>
         </div>
 
@@ -100,7 +100,7 @@
 
             <!-- Footer de la Tarjeta -->
             <div class="px-8 py-4 bg-slate-900/40 border-t border-slate-700/50 text-center text-xs text-slate-500">
-                © {{ date('Y') }} EconomyManager. Todos los derechos reservados.
+                © {{ date('Y') }} Miguel Angel Panameño. Todos los derechos reservados.
             </div>
 
         </div>

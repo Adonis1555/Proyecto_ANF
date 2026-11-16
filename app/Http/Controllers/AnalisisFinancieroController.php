@@ -145,106 +145,275 @@ class AnalisisFinancieroController extends Controller
 
     // ANÁLISIS VERTICAL
     
-    public function analisisVertical(Request $request)
-    {
-        $datos = $request->validate([
-            'empresa_id' => 'required|integer',
-            'tipo_reporte' => 'required|in:balance,estado_resultados',
-            'anio' => 'required|integer|min:2017|max:2099',
-            'cuenta_base_id' => 'nullable|integer',
-        ]);
     
-        $empresaId = $this->empresaActual();
-    
-        abort_unless(
-            (int) $datos['empresa_id'] === (int) $empresaId,
-            403,
-            'No tienes permiso para consultar esta empresa.'
+private function clasificarCuentaVertical($cuenta)
+{
+    $tipo = mb_strtolower(trim((string) $cuenta->tipo));
+    $codigo = trim((string) $cuenta->codigo);
+
+    return match ($tipo) {
+        'activo' => 'activo',
+        'pasivo' => 'pasivo',
+        'patrimonio' => 'patrimonio',
+        'ingresos' => 'ingresos',
+        'gastos' => 'gastos',
+        'costos de venta' => 'costos',
+        default => match (substr($codigo, 0, 1)) {
+            '1' => 'activo',
+            '2' => 'pasivo',
+            '3' => 'patrimonio',
+            '4' => 'ingresos',
+            '5' => 'gastos',
+            '6' => 'costos',
+            default => null,
+        },
+    };
+}
+
+/**
+ * Identifica las cuentas de detalle y comprueba
+ * los saldos de las cuentas acumuladoras.
+ *
+ * Se asume jerarquía por prefijos de código.
+ */
+private function prepararCuentasVertical($cuentas)
+{
+    $advertencias = collect();
+
+    $cuentas = $cuentas->map(function ($cuenta) {
+        $cuenta->codigo = trim((string) $cuenta->codigo);
+        $cuenta->grupo = $this->clasificarCuentaVertical($cuenta);
+        $cuenta->es_detalle = true;
+        $cuenta->porcentaje = null;
+        return $cuenta;
+    });
+
+    foreach ($cuentas as $cuenta) {
+
+        $descendientes = $cuentas->filter(
+            fn ($otra) =>
+                $otra->grupo === $cuenta->grupo
+                && $otra->codigo !== $cuenta->codigo
+                && str_starts_with(
+                    $otra->codigo,
+                    $cuenta->codigo
+                )
         );
-    
-        $tipoReporte = $datos['tipo_reporte'];
-        $anio = (int) $datos['anio'];
-    
-        $reportes = $this->reportesEmpresa($empresaId, $tipoReporte)
-            ->where('anio', $anio)
-            ->get();
-    
-        if ($reportes->isEmpty()) {
-            throw ValidationException::withMessages([
-                'anio' => 'No existen reportes para el año seleccionado.',
-            ]);
+
+        if ($descendientes->isEmpty()) {
+            continue;
         }
-    
-        // Agrupar saldos por cuenta contable
-        $cuentas = $reportes
-            ->groupBy('catalogo_id_catalogo')
-            ->map(function ($registros) {
-                $catalogo = $registros->first()->catalogo;
-    
-                return (object) [
-                    'id' => $catalogo->id_catalogo,
-                    'codigo' => $catalogo->codigo_cuenta,
-                    'nombre' => $catalogo->nombre_cuenta,
-                    'tipo' => $catalogo->tipo_cuenta,
-                    'saldo' => (float) $registros->sum('saldo'),
-                    'porcentaje' => null,
-                ];
-            })
-            ->sortBy('codigo')
-            ->values();
-    
-        // Cuentas que pueden servir como referencia
-        $candidatas = $cuentas
-            ->filter(fn ($cuenta) => abs($cuenta->saldo) > 0.00000001)
-            ->values();
-    
-        $cuentaBase = null;
-    
-        // Prioridad: cuenta seleccionada manualmente
-        if ($request->filled('cuenta_base_id')) {
-            $cuentaBase = $candidatas->first(
-                fn ($cuenta) =>
-                    (int) $cuenta->id === (int) $datos['cuenta_base_id']
-            );
-    
-            if (!$cuentaBase) {
-                throw ValidationException::withMessages([
-                    'cuenta_base_id' =>
-                        'La cuenta base seleccionada no es válida para este reporte.',
-                ]);
-            }
-        }
-    
-        // Identificación automática: solo si hay una candidata
-        if (!$cuentaBase && $candidatas->count() === 1) {
-            $cuentaBase = $candidatas->first();
-        }
-    
-        // Si no hay una base inequívoca, pedir selección
-        if (!$cuentaBase) {
-            return view('analisis.seleccionar-base', compact(
-                'empresaId',
-                'tipoReporte',
-                'anio',
-                'candidatas'
-            ));
-        }
-    
-        $saldoBase = $cuentaBase->saldo;
-    
-        $cuentas = $cuentas->map(function ($cuenta) use ($saldoBase) {
-            $cuenta->porcentaje = ($cuenta->saldo / $saldoBase) * 100;
-            return $cuenta;
-        });
-    
-        return view('analisis.vertical', compact(
-            'empresaId',
-            'tipoReporte',
-            'anio',
-            'cuentas',
-            'cuentaBase'
-        ));
+
+        $cuenta->es_detalle = false;
+
+        // Sumar solamente descendientes finales.
+        $saldoDetalle = $descendientes
+            ->filter(fn ($otra) => $otra->es_detalle)
+            ->sum('saldo');
+
+        // La clasificación definitiva de hojas se
+        // calcula nuevamente en el siguiente paso.
     }
+
+    // Verificar acumuladores una vez identificadas
+    // todas las cuentas de detalle.
+    foreach ($cuentas->where('es_detalle', false) as $cuenta) {
+
+        $saldoHijas = $cuentas->filter(
+            fn ($otra) =>
+                $otra->grupo === $cuenta->grupo
+                && $otra->es_detalle
+                && str_starts_with(
+                    $otra->codigo,
+                    $cuenta->codigo
+                )
+        )->sum('saldo');
+
+        if (abs($cuenta->saldo - $saldoHijas) > 0.01) {
+            $advertencias->push(
+                "La cuenta {$cuenta->codigo} - " .
+                "{$cuenta->nombre} presenta un saldo de $" .
+                number_format($cuenta->saldo, 2) .
+                ", mientras que sus cuentas de detalle " .
+                "suman $" . number_format($saldoHijas, 2) . "."
+            );
+        }
+    }
+
+    return [$cuentas, $advertencias];
+}
+
+public function analisisVertical(Request $request)
+{
+    $datos = $request->validate([
+        'empresa_id' => 'required|integer',
+        'tipo_reporte' => 'required|in:balance,estado_resultados',
+        'anio' => 'required|integer|min:2017|max:2099',
+    ]);
+
+    $empresaId = $this->empresaActual();
+
+    abort_unless(
+        (int) $datos['empresa_id'] === (int) $empresaId,
+        403,
+        'No tienes permiso para consultar esta empresa.'
+    );
+
+    $tipoReporte = $datos['tipo_reporte'];
+    $anio = (int) $datos['anio'];
+
+    $reportes = $this->reportesEmpresa(
+        $empresaId,
+        $tipoReporte
+    )
+        ->where('anio', $anio)
+        ->get();
+
+    if ($reportes->isEmpty()) {
+        throw ValidationException::withMessages([
+            'anio' => 'No existen reportes para el año seleccionado.',
+        ]);
+    }
+
+    $cuentas = $reportes
+        ->groupBy('catalogo_id_catalogo')
+        ->map(function ($registros) {
+
+            $catalogo = $registros->first()->catalogo;
+
+            return (object) [
+                'id' => $catalogo->id_catalogo,
+                'codigo' => $catalogo->codigo_cuenta,
+                'nombre' => $catalogo->nombre_cuenta,
+                'tipo' => $catalogo->tipo_cuenta,
+                'saldo' => (float) $registros->sum('saldo'),
+                'porcentaje' => null,
+            ];
+        })
+        ->sortBy('codigo', SORT_NATURAL)
+        ->values();
+
+    [$cuentas, $advertencias] =
+        $this->prepararCuentasVertical($cuentas);
+
+    $sinClasificar = $cuentas->filter(
+        fn ($cuenta) => $cuenta->grupo === null
+    );
+
+    if ($sinClasificar->isNotEmpty()) {
+        throw ValidationException::withMessages([
+            'tipo_reporte' =>
+                'Existen cuentas sin clasificación contable: ' .
+                $sinClasificar->pluck('codigo')->implode(', '),
+        ]);
+    }
+
+    $gruposPermitidos = $tipoReporte === 'balance'
+        ? ['activo', 'pasivo', 'patrimonio']
+        : ['ingresos', 'costos', 'gastos'];
+
+    $cuentasInvalidas = $cuentas->filter(
+        fn ($cuenta) =>
+            !in_array($cuenta->grupo, $gruposPermitidos, true)
+    );
+
+    if ($cuentasInvalidas->isNotEmpty()) {
+        throw ValidationException::withMessages([
+            'tipo_reporte' =>
+                'El reporte contiene cuentas que no corresponden ' .
+                'al estado financiero seleccionado: ' .
+                $cuentasInvalidas->pluck('codigo')->implode(', '),
+        ]);
+    }
+
+    // Evitar duplicar cuentas acumuladoras.
+    $detalle = $cuentas
+        ->where('es_detalle', true)
+        ->values();
+
+    $totales = [];
+
+    if ($tipoReporte === 'balance') {
+
+        $activos = (float) $detalle
+            ->where('grupo', 'activo')->sum('saldo');
+
+        $pasivos = (float) $detalle
+            ->where('grupo', 'pasivo')->sum('saldo');
+
+        $patrimonio = (float) $detalle
+            ->where('grupo', 'patrimonio')->sum('saldo');
+
+        $pasivoPatrimonio = $pasivos + $patrimonio;
+
+        $totales = [
+            'activos' => $activos,
+            'pasivos' => $pasivos,
+            'patrimonio' => $patrimonio,
+            'pasivo_patrimonio' => $pasivoPatrimonio,
+            'diferencia' => $activos - $pasivoPatrimonio,
+        ];
+
+        foreach ($cuentas as $cuenta) {
+
+            $base = $cuenta->grupo === 'activo'
+                ? $activos
+                : $pasivoPatrimonio;
+
+            $cuenta->porcentaje = abs($base) > 0.00000001
+                ? ($cuenta->saldo / $base) * 100
+                : null;
+        }
+
+    } else {
+
+        $ingresos = (float) $detalle
+            ->where('grupo', 'ingresos')->sum('saldo');
+
+        $costos = (float) $detalle
+            ->where('grupo', 'costos')->sum('saldo');
+
+        $gastos = (float) $detalle
+            ->where('grupo', 'gastos')->sum('saldo');
+
+        $utilidadBruta = $ingresos - $costos;
+        $resultado = $utilidadBruta - $gastos;
+
+        $totales = [
+            'ingresos' => $ingresos,
+            'costos' => $costos,
+            'gastos' => $gastos,
+            'utilidad_bruta' => $utilidadBruta,
+            'utilidad_neta' => $resultado,
+        ];
+
+        foreach ($cuentas as $cuenta) {
+            $cuenta->porcentaje = abs($ingresos) > 0.00000001
+                ? ($cuenta->saldo / $ingresos) * 100
+                : null;
+        }
+    }
+
+    // Organizar las cuentas para la vista.
+    $grupos = collect($gruposPermitidos)
+        ->mapWithKeys(function ($grupo) use ($cuentas) {
+            return [
+                $grupo => $cuentas
+                    ->where('grupo', $grupo)
+                    ->values()
+            ];
+        });
+
+    return view('analisis.vertical', compact(
+        'empresaId',
+        'tipoReporte',
+        'anio',
+        'cuentas',
+        'grupos',
+        'totales',
+        'advertencias'
+    ));
+}
 
 
     public function historialVertical()

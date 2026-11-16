@@ -1,85 +1,481 @@
+
 @extends('layouts.app')
 
 @section('title', 'Análisis Vertical')
 
 @section('content')
+
+@php
+    $esBalance = $tipoReporte === 'balance';
+
+    $tituloReporte = $esBalance
+        ? 'Balance General'
+        : 'Estado de Resultados';
+
+    $configuracion = $esBalance
+        ? [
+            'activo' => 'Activos',
+            'pasivo' => 'Pasivos',
+            'patrimonio' => 'Patrimonio',
+        ]
+        : [
+            'ingresos' => 'Ingresos',
+            'costos' => 'Costos de venta',
+            'gastos' => 'Gastos',
+        ];
+
+    $formato = fn ($valor) =>
+        '$ ' . number_format((float) $valor, 2, '.', ',');
+
+    $porcentaje = fn ($valor) =>
+        $valor === null
+            ? 'N/D'
+            : number_format($valor, 2) . ' %';
+
+    $baseIngresos = $totales['ingresos'] ?? 0;
+
+    $porcentajeResultado = function ($valor) use ($baseIngresos) {
+        return abs($baseIngresos) > 0.00000001
+            ? ($valor / $baseIngresos) * 100
+            : null;
+    };
+
+    $resumen = $esBalance
+        ? [
+            ['nombre' => 'Total activos',
+             'valor' => $totales['activos']],
+            ['nombre' => 'Total pasivos',
+             'valor' => $totales['pasivos']],
+            ['nombre' => 'Total patrimonio',
+             'valor' => $totales['patrimonio']],
+            ['nombre' => 'Pasivo + patrimonio',
+             'valor' => $totales['pasivo_patrimonio']],
+        ]
+        : [
+            ['nombre' => 'Total ingresos',
+             'valor' => $totales['ingresos']],
+            ['nombre' => 'Costos de venta',
+             'valor' => $totales['costos']],
+            ['nombre' => 'Total gastos',
+             'valor' => $totales['gastos']],
+            ['nombre' => 'Resultado del ejercicio',
+             'valor' => $totales['utilidad_neta']],
+        ];
+@endphp
+
 <div class="space-y-6">
 
-    <!-- Encabezado Principal y Breadcrumbs -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <div class="space-y-1">
-            <nav class="flex items-center gap-2 text-xs text-slate-400 font-medium mb-1">
-                <a href="{{ route('dashboard') }}" class="hover:text-cyan-600 transition">Inicio</a>
-                <i class="bi bi-chevron-right text-[10px]"></i>
-                <a href="{{ route('analisis.index') }}" class="hover:text-cyan-600 transition">Análisis Financiero</a>
-                <i class="bi bi-chevron-right text-[10px]"></i>
-                <span class="text-slate-600 font-semibold">Análisis Vertical</span>
-            </nav>
-            <div class="flex items-center gap-3">
-                <div class="h-10 w-10 rounded-xl bg-cyan-500/10 text-cyan-600 border border-cyan-500/20 flex items-center justify-center font-bold">
-                    <i class="bi bi-border-width text-xl"></i>
+    {{-- ENCABEZADO --}}
+    <div class="bg-white rounded-2xl border border-slate-200
+                shadow-sm p-6">
+
+        <div class="flex flex-col sm:flex-row
+                    sm:items-center sm:justify-between gap-4">
+
+            <div class="space-y-2">
+
+                <nav class="flex items-center gap-2
+                            text-xs text-slate-400">
+
+                    <a href="{{ route('dashboard') }}"
+                       class="hover:text-cyan-600">
+                        Inicio
+                    </a>
+
+                    <i class="bi bi-chevron-right"></i>
+
+                    <a href="{{ route('analisis.index') }}"
+                       class="hover:text-cyan-600">
+                        Análisis Financiero
+                    </a>
+
+                    <i class="bi bi-chevron-right"></i>
+
+                    <span class="text-slate-600">
+                        Análisis Vertical
+                    </span>
+                </nav>
+
+                <div class="flex items-center gap-3">
+
+                    <div class="w-11 h-11 rounded-xl
+                                bg-cyan-50 text-cyan-600
+                                flex items-center justify-center">
+
+                        <i class="bi bi-bar-chart-line text-xl"></i>
+                    </div>
+
+                    <div>
+                        <h1 class="text-xl font-bold text-slate-900">
+                            Análisis Vertical
+                        </h1>
+
+                        <p class="text-sm text-slate-500">
+                            {{ $tituloReporte }} · {{ $anio }}
+                        </p>
+                    </div>
                 </div>
+            </div>
+
+            <div class="flex items-center gap-2 print:hidden">
+
+                <button onclick="window.print()"
+                        class="px-4 py-2 rounded-xl
+                               bg-white border border-slate-200
+                               text-slate-700 text-sm font-medium
+                               hover:bg-slate-50 transition">
+
+                    <i class="bi bi-printer mr-1"></i>
+                    Imprimir
+                </button>
+
+                <a href="{{ route('analisis.index') }}"
+                   class="px-4 py-2 rounded-xl
+                          bg-slate-100 text-slate-700
+                          text-sm font-medium
+                          hover:bg-slate-200 transition">
+
+                    <i class="bi bi-arrow-left mr-1"></i>
+                    Volver
+                </a>
+            </div>
+        </div>
+    </div>
+
+
+    {{-- RESUMEN FINANCIERO --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2
+                xl:grid-cols-4 gap-4">
+
+        @foreach ($resumen as $item)
+
+            <div class="bg-white border border-slate-200
+                        rounded-2xl p-5 shadow-sm">
+
+                <p class="text-xs font-medium text-slate-500">
+                    {{ $item['nombre'] }}
+                </p>
+
+                <p class="text-xl font-bold text-slate-900
+                          mt-2 font-mono">
+                    {{ $formato($item['valor']) }}
+                </p>
+            </div>
+
+        @endforeach
+    </div>
+
+
+    {{-- COMPROBACIÓN DEL BALANCE --}}
+    @if ($esBalance)
+
+        @php
+            $diferencia = $totales['diferencia'];
+            $balanceCuadrado = abs($diferencia) <= 0.01;
+        @endphp
+
+        <div class="bg-white border border-slate-200
+                    rounded-xl px-5 py-4">
+
+            <div class="flex flex-col sm:flex-row
+                        sm:items-center sm:justify-between gap-3">
+
                 <div>
-                    <h1 class="text-xl font-bold text-slate-900 tracking-tight">
-                        Análisis Vertical — {{ ucfirst(str_replace('_', ' ', $tipoReporte)) }} {{ $anio }}
-                    </h1>
-                    <p class="text-xs text-slate-500">Composición porcentual de las cuentas con respecto a la cuenta base del periodo</p>
+                    <h3 class="text-sm font-semibold text-slate-800">
+                        Comprobación del Balance General
+                    </h3>
+
+                    <p class="text-xs text-slate-500 mt-1">
+                        Activos = Pasivos + Patrimonio
+                    </p>
+                </div>
+
+                <div class="text-left sm:text-right">
+
+                    <p class="text-sm font-bold
+                        {{ $balanceCuadrado
+                            ? 'text-emerald-600'
+                            : 'text-amber-600' }}">
+
+                        {{ $balanceCuadrado
+                            ? 'Balance cuadrado'
+                            : 'Diferencia detectada' }}
+                    </p>
+
+                    <p class="text-xs text-slate-500 mt-1">
+                        Diferencia:
+                        {{ $formato($diferencia) }}
+                    </p>
                 </div>
             </div>
         </div>
 
-        <a href="{{ route('analisis.index') }}" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition self-start sm:self-auto print:hidden">
-            <i class="bi bi-arrow-left text-sm"></i>
-            Volver
-        </a>
-    </div>
+    @endif
 
-    <!-- Tabla de Análisis Vertical -->
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div class="w-full overflow-x-auto">
-            <table class="w-full text-left border-collapse min-w-full">
-                <thead>
-                    <tr class="bg-slate-900 text-white text-xs uppercase tracking-wider border-b border-slate-800">
-                        <th class="py-3.5 px-6 font-semibold w-2/12">Código</th>
-                        <th class="py-3.5 px-6 font-semibold w-6/12">Cuenta Contable</th>
-                        <th class="py-3.5 px-6 font-semibold w-2/12 text-right">Saldo ($)</th>
-                        <th class="py-3.5 px-6 font-semibold w-2/12 text-center bg-cyan-950/40 text-cyan-300">% Participación</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 text-sm">
-                    {{-- Reemplazar este bloque iterador con la variable enviada por tu controlador --}}
-                    @forelse ($cuentas ?? [] as $cuenta)
-                        <tr class="hover:bg-slate-50/80 transition">
-                            <td class="py-3.5 px-6 font-mono font-bold text-cyan-600">
-                                <span class="px-2 py-0.5 rounded bg-cyan-50 border border-cyan-200/60 text-xs">
-                                    {{ $cuenta->codigo }}
-                                </span>
-                            </td>
-                            <td class="py-3.5 px-6 font-medium text-slate-800">
-                                {{ $cuenta->nombre }}
-                            </td>
-                            <td class="py-3.5 px-6 text-right font-mono font-semibold text-slate-900">
-                                $ {{ number_format($cuenta->saldo, 2, ',', '.') }}
-                            </td>
-                            <td class="py-3.5 px-6 text-center font-mono font-bold text-cyan-700 bg-cyan-50/30">
-                                {{ number_format($cuenta->porcentaje, 2) }} %
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="4" class="py-12 text-center text-slate-400">
-                                <div class="flex flex-col items-center justify-center space-y-2">
-                                    <i class="bi bi-file-earmark-bar-graph text-4xl text-slate-300"></i>
-                                    <p class="text-sm font-medium text-slate-500">Vista previa del reporte de Análisis Vertical</p>
-                                    <p class="text-xs text-slate-400">Conecta la variable $cuentas desde tu controlador para renderizar la matriz de saldos.</p>
-                                </div>
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
+
+    {{-- ADVERTENCIAS --}}
+    @if ($advertencias->isNotEmpty())
+
+        <div class="bg-amber-50 border border-amber-200
+                    rounded-xl p-5">
+
+            <div class="flex items-start gap-3">
+
+                <i class="bi bi-exclamation-triangle
+                          text-amber-600"></i>
+
+                <div class="flex-1">
+
+                    <h3 class="text-sm font-semibold text-amber-900">
+                        Observaciones sobre los saldos
+                    </h3>
+
+                    <p class="text-xs text-amber-800 mt-1">
+                        Se encontraron diferencias entre cuentas
+                        acumuladoras y sus cuentas de detalle.
+                        Los totales se calcularon con las cuentas
+                        de detalle identificadas.
+                    </p>
+
+                    <ul class="mt-3 space-y-2 text-xs text-amber-800">
+
+                        @foreach ($advertencias as $advertencia)
+                            <li>• {{ $advertencia }}</li>
+                        @endforeach
+
+                    </ul>
+                </div>
+            </div>
         </div>
-    </div>
+
+    @endif
+
+
+    {{-- DETALLE POR GRUPOS --}}
+    @foreach ($configuracion as $clave => $nombreGrupo)
+
+        @php
+            $cuentasGrupo = $grupos[$clave] ?? collect();
+
+            $totalGrupo = $esBalance
+                ? ($totales[
+                    match ($clave) {
+                        'activo' => 'activos',
+                        'pasivo' => 'pasivos',
+                        'patrimonio' => 'patrimonio'
+                    }
+                ] ?? 0)
+                : ($totales[$clave] ?? 0);
+
+            $baseGrupo = $esBalance
+                ? ($clave === 'activo'
+                    ? $totales['activos']
+                    : $totales['pasivo_patrimonio'])
+                : $totales['ingresos'];
+
+            $porcentajeGrupo = abs($baseGrupo) > 0.00000001
+                ? ($totalGrupo / $baseGrupo) * 100
+                : null;
+        @endphp
+
+        <div class="bg-white rounded-2xl
+                    border border-slate-200
+                    shadow-sm overflow-hidden">
+
+            <div class="px-6 py-4 border-b border-slate-200
+                        flex items-center justify-between">
+
+                <div>
+                    <h2 class="text-base font-bold text-slate-900">
+                        {{ $nombreGrupo }}
+                    </h2>
+
+                    <p class="text-xs text-slate-500 mt-1">
+                        {{ $cuentasGrupo->count() }} cuentas registradas
+                    </p>
+                </div>
+
+                <span class="text-xs font-semibold text-cyan-700
+                             bg-cyan-50 px-3 py-1 rounded-lg">
+                    {{ $porcentaje($porcentajeGrupo) }}
+                </span>
+            </div>
+
+            <div class="overflow-x-auto">
+
+                <table class="w-full text-sm text-left">
+
+                    <thead class="bg-slate-900 text-white
+                                  text-xs uppercase tracking-wide">
+
+                        <tr>
+                            <th class="px-6 py-3 font-semibold">
+                                Código
+                            </th>
+
+                            <th class="px-6 py-3 font-semibold">
+                                Cuenta contable
+                            </th>
+
+                            <th class="px-6 py-3 text-right font-semibold">
+                                Saldo
+                            </th>
+
+                            <th class="px-6 py-3 text-right font-semibold">
+                                Participación
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody class="divide-y divide-slate-100">
+
+                        @forelse ($cuentasGrupo as $cuenta)
+
+                            <tr class="hover:bg-slate-50 transition
+                                {{ !$cuenta->es_detalle
+                                    ? 'bg-slate-50/70'
+                                    : '' }}">
+
+                                <td class="px-6 py-3 font-mono
+                                           text-xs text-cyan-700">
+                                    {{ $cuenta->codigo }}
+                                </td>
+
+                                <td class="px-6 py-3">
+
+                                    <div class="flex items-center gap-2">
+
+                                        <span class="{{ !$cuenta->es_detalle
+                                            ? 'font-bold text-slate-900'
+                                            : 'text-slate-700' }}">
+
+                                            {{ $cuenta->nombre }}
+                                        </span>
+
+                                        @if (!$cuenta->es_detalle)
+                                            <span class="text-[10px]
+                                                         text-slate-500
+                                                         bg-slate-200
+                                                         rounded px-2 py-0.5">
+                                                Acumuladora
+                                            </span>
+                                        @endif
+
+                                    </div>
+                                </td>
+
+                                <td class="px-6 py-3 text-right
+                                           font-mono text-slate-800">
+                                    {{ $formato($cuenta->saldo) }}
+                                </td>
+
+                                <td class="px-6 py-3 text-right
+                                           font-mono font-semibold
+                                           text-cyan-700">
+
+                                    {{ $porcentaje($cuenta->porcentaje) }}
+                                </td>
+                            </tr>
+
+                        @empty
+
+                            <tr>
+                                <td colspan="4"
+                                    class="px-6 py-8 text-center
+                                           text-slate-400 text-sm">
+                                    No hay cuentas en esta categoría.
+                                </td>
+                            </tr>
+
+                        @endforelse
+
+                    </tbody>
+
+                    <tfoot>
+                        <tr class="bg-slate-100 border-t
+                                   border-slate-200">
+
+                            <td colspan="2"
+                                class="px-6 py-4 font-bold text-slate-900">
+                                TOTAL {{ mb_strtoupper($nombreGrupo) }}
+                            </td>
+
+                            <td class="px-6 py-4 text-right
+                                       font-mono font-bold text-slate-900">
+                                {{ $formato($totalGrupo) }}
+                            </td>
+
+                            <td class="px-6 py-4 text-right
+                                       font-mono font-bold text-cyan-700">
+                                {{ $porcentaje($porcentajeGrupo) }}
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+    @endforeach
+
+
+    {{-- RESULTADOS FINALES --}}
+    @if (!$esBalance)
+
+        <div class="bg-white border border-slate-200
+                    rounded-2xl shadow-sm overflow-hidden">
+
+            <div class="px-6 py-4 border-b border-slate-200">
+
+                <h2 class="text-base font-bold text-slate-900">
+                    Resumen de resultados
+                </h2>
+
+                <p class="text-xs text-slate-500 mt-1">
+                    Cálculo automático del resultado del ejercicio
+                </p>
+            </div>
+
+            <div class="divide-y divide-slate-100">
+
+                @foreach ([
+                    ['Resultado bruto',
+                     $totales['utilidad_bruta']],
+                    ['Resultado del ejercicio',
+                     $totales['utilidad_neta']]
+                ] as $resultado)
+
+                    <div class="px-6 py-4 flex flex-col
+                                sm:flex-row sm:justify-between
+                                sm:items-center gap-2">
+
+                        <span class="text-sm font-semibold
+                                     text-slate-700">
+                            {{ $resultado[0] }}
+                        </span>
+
+                        <div class="flex items-center gap-5">
+
+                            <span class="font-mono text-sm
+                                         text-slate-900 font-bold">
+                                {{ $formato($resultado[1]) }}
+                            </span>
+
+                            <span class="font-mono text-sm
+                                         text-cyan-700 font-bold">
+                                {{ $porcentaje(
+                                    $porcentajeResultado($resultado[1])
+                                ) }}
+                            </span>
+                        </div>
+                    </div>
+
+                @endforeach
+            </div>
+        </div>
+
+    @endif
+
 
 </div>
+
 @endsection

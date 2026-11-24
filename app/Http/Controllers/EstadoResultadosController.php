@@ -13,18 +13,14 @@ use App\Models\ValorRatio;
 
 class EstadoResultadosController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
         $usuario = Usuario::find(session('usuario_id'));
         $empresaId = $usuario->id_empresa;
         $empresa = Empresa::find($empresaId);
-        
-        // Consulta para obtener años únicos
+
         $listaAnios = ReporteFinanciero::select('anio')
-            ->whereHas('catalogo', function($query) use ($empresa) {
+            ->whereHas('catalogo', function ($query) use ($empresa) {
                 $query->where('empresa_id_empresa', $empresa->id_empresa);
             })
             ->where('balance', false)
@@ -32,8 +28,8 @@ class EstadoResultadosController extends Controller
             ->orderBy('anio', 'desc')
             ->pluck('anio')
             ->toArray();
-        $aniosDisponibles = $listaAnios; 
-        
+
+        $aniosDisponibles = $listaAnios;
 
         return view('EstadoResultados.listaEstadoResultados', [
             'titulo' => 'Estado de Resultados',
@@ -42,22 +38,75 @@ class EstadoResultadosController extends Controller
         ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create(Request $request)
     {
         $anio = $request->query('anio');
-        
+
         return view('EstadoResultados.cargarExcel', [
             'titulo' => 'Subir ER',
-            'anio' => $anio 
+            'anio' => $anio
         ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    private function esFilaSubtotal(string $nombreCuenta): bool
+    {
+        $normalizado = mb_strtolower(trim($nombreCuenta));
+
+        if ($normalizado === '') {
+            return true;
+        }
+
+        $patronesSubtotal = [
+            'utilidad bruta',
+            'utilidad de operacion',
+            'utilidad de operación',
+            'utilidad en operacion',
+            'utilidad en operación',
+            'utilidad operativa',
+            'utilidad antes de',
+            'utilidad neta',
+            'utilidad del ejercicio',
+            'perdida neta',
+            'pérdida neta',
+            'perdida del ejercicio',
+            'pérdida del ejercicio',
+            'resultado del ejercicio',
+            'resultado integral',
+            'total ingresos',
+            'total de ingresos',
+            'total costos',
+            'total de costos',
+            'total gastos',
+            'total de gastos',
+            'total egresos',
+            'total otros ingresos',
+            'total otros gastos',
+        ];
+
+        foreach ($patronesSubtotal as $patron) {
+            if (str_contains($normalizado, $patron)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function inferirDatosCuentaER(string $nombreCuenta): array
+    {
+        $nombre = mb_strtolower($nombreCuenta);
+
+        if (str_contains($nombre, 'venta') || str_contains($nombre, 'ingreso')) {
+            return ['codigo' => '4101', 'tipo' => 'Ingresos'];
+        }
+
+        if (str_contains($nombre, 'costo')) {
+            return ['codigo' => '6101', 'tipo' => 'Costos de venta'];
+        }
+
+        return ['codigo' => '5101', 'tipo' => 'Gastos'];
+    }
+
     public function store(Request $request)
     {
         $request->validate([
@@ -71,7 +120,6 @@ class EstadoResultadosController extends Controller
 
         $existe = ReporteFinanciero::where('anio', $anio)
             ->whereHas('catalogo', fn($q) => $q->where('empresa_id_empresa', $empresaId))
-            ->where('anio', $anio)
             ->where('balance', false)
             ->exists();
 
@@ -83,52 +131,62 @@ class EstadoResultadosController extends Controller
             $spreadsheet = IOFactory::load($request->file('file')->getPathname());
             $hoja = $spreadsheet->getActiveSheet()->toArray();
 
-            $errores = [];
+            DB::beginTransaction();
+
+            $omitidas = 0;
             $exitos = 0;
 
             foreach ($hoja as $i => $fila) {
-                if ($i === 0) continue;
+                if ($i === 0) {
+                    continue;
+                }
 
-                $nombreCuenta = trim($fila[0] ?? '');
+                $nombreCuenta = trim((string) ($fila[0] ?? ''));
                 $saldo = floatval($fila[1] ?? 0);
 
+                if ($this->esFilaSubtotal($nombreCuenta)) {
+                    $omitidas++;
+                    continue;
+                }
+
                 $cuenta = Catalogo::where('empresa_id_empresa', $empresaId)
-                    ->where('nombre_cuenta', $nombreCuenta)->first();
+                    ->whereRaw('LOWER(TRIM(nombre_cuenta)) = ?', [mb_strtolower($nombreCuenta)])
+                    ->first();
 
                 if (!$cuenta) {
-                    // $errores[] = "Fila " . ($i + 1) . ": cuenta no encontrada";
-                    // continue;
-                   $cuenta = Catalogo::create([
-                    'empresa_id_empresa' => $empresaId,
-                    'nombre_cuenta'      => $nombreCuenta,
-                    'codigo_cuenta'      => '9999', // puedes definir tu lógica
-                    'tipo_cuenta'        => 'Otro', // o usar tu match para asignar tipo según código
-                ]);
+                    $datosCuenta = $this->inferirDatosCuentaER($nombreCuenta);
+
+                    $cuenta = Catalogo::create([
+                        'empresa_id_empresa' => $empresaId,
+                        'nombre_cuenta'      => $nombreCuenta,
+                        'codigo_cuenta'      => $datosCuenta['codigo'],
+                        'tipo_cuenta'        => $datosCuenta['tipo'],
+                    ]);
                 }
 
                 ReporteFinanciero::create([
-                    'anio' => $anio,
-                    'balance' => false,
-                    'saldo' => $saldo,
+                    'anio'                 => $anio,
+                    'balance'              => false,
+                    'saldo'                => $saldo,
                     'catalogo_id_catalogo' => $cuenta->id_catalogo
                 ]);
 
                 $exitos++;
             }
 
-            if ($errores) {
-                return redirect()->route('estado-resultados.index')->with('warning', "Importación parcial: $exitos cuentas. Errores: " . implode(', ', $errores));
-            }
+            DB::commit();
 
-            return redirect()->route('estado-resultados.index')->with('success', "ER cargado exitosamente ($exitos cuentas)");
+            return redirect()
+                ->route('estado-resultados.index')
+                ->with('success', "ER cargado exitosamente ({$exitos} cuentas importadas, {$omitidas} filas de totales/vacías omitidas).");
         } catch (\Exception $e) {
-            return redirect()->route('estado-resultados.index')->with('error', 'Error al procesar el archivo');
+            DB::rollBack();
+            return redirect()
+                ->route('estado-resultados.index')
+                ->with('error', 'Error al procesar el archivo: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(string $anio)
     {
         $usuario = Usuario::find(session('usuario_id'));
@@ -141,46 +199,171 @@ class EstadoResultadosController extends Controller
             ->orderBy('id_reporte', 'asc')
             ->get();
 
-        return view('EstadoResultados.verEstadoResultados', compact('estadoResultados', 'anio'));
+        $ingresos = $estadoResultados
+            ->filter(fn($r) => mb_strtolower(trim((string) $r->catalogo->tipo_cuenta)) === 'ingresos')
+            ->sum('saldo');
+
+        $costos = $estadoResultados
+            ->filter(fn($r) => mb_strtolower(trim((string) $r->catalogo->tipo_cuenta)) === 'costos de venta')
+            ->sum('saldo');
+
+        $gastos = $estadoResultados
+            ->filter(fn($r) => mb_strtolower(trim((string) $r->catalogo->tipo_cuenta)) === 'gastos')
+            ->sum('saldo');
+
+        $utilidadBruta = $ingresos - $costos;
+        $utilidadNeta  = $utilidadBruta - $gastos;
+
+        return view('EstadoResultados.verEstadoResultados', compact(
+            'estadoResultados',
+            'anio',
+            'ingresos',
+            'costos',
+            'gastos',
+            'utilidadBruta',
+            'utilidadNeta'
+        ));
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(string $anio)
     {
         $usuario = Usuario::find(session('usuario_id'));
         $empresaId = $usuario->id_empresa;
 
-    try {
-        DB::beginTransaction();
+        try {
+            DB::beginTransaction();
 
-        // Eliminar los reportes financieros del Estado de Resultados
-        $reportesEliminados = ReporteFinanciero::where('anio', $anio)
-            ->where('balance', false)
-            ->whereHas('catalogo', fn($q) => $q->where('empresa_id_empresa', $empresaId))
-            ->delete();
+            $reportesEliminados = ReporteFinanciero::where('anio', $anio)
+                ->where('balance', false)
+                ->whereHas('catalogo', fn($q) => $q->where('empresa_id_empresa', $empresaId))
+                ->delete();
 
-        // Eliminar los valores de ratios del año
-        $ratiosEliminados = \App\Models\ValorRatio::where('anio_ratio', $anio)
-            ->where('empresa_id_empresa', $empresaId)
-            ->delete();
+            $ratiosEliminados = ValorRatio::where('anio_ratio', $anio)
+                ->where('empresa_id_empresa', $empresaId)
+                ->delete();
 
-        DB::commit();
+            DB::commit();
 
-        if ($reportesEliminados > 0 || $ratiosEliminados > 0) {
-            return redirect()->route('estado-resultados.index')
-                ->with('success', "Estado de Resultados del año {$anio} eliminado exitosamente ({$reportesEliminados} reportes, {$ratiosEliminados} ratios)");
-        } else {
-            return redirect()->route('estado-resultados.index')
-                ->with('warning', "No se encontraron datos del año {$anio} para eliminar");
-        }
-
+            if ($reportesEliminados > 0 || $ratiosEliminados > 0) {
+                return redirect()->route('estado-resultados.index')
+                    ->with('success', "Estado de Resultados del año {$anio} eliminado exitosamente ({$reportesEliminados} reportes, {$ratiosEliminados} ratios)");
+            } else {
+                return redirect()->route('estado-resultados.index')
+                    ->with('warning', "No se encontraron datos del año {$anio} para eliminar");
+            }
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->route('estado-resultados.index')
                 ->with('error', 'Error al eliminar el Estado de Resultados: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Clasifica una cuenta del catálogo en ingresos, costos o gastos.
+     */
+    private function clasificarCuentaER($catalogo): ?string
+    {
+        $tipo = mb_strtolower(trim((string) ($catalogo->tipo_cuenta ?? '')));
+        $codigo = trim((string) ($catalogo->codigo_cuenta ?? ''));
+
+        return match ($tipo) {
+            'ingresos', 'ingreso'            => 'ingresos',
+            'costos de venta', 'costos', 'costo' => 'costos',
+            'gastos', 'gasto'                => 'gastos',
+            default => match (substr($codigo, 0, 1)) {
+                '4' => 'ingresos',
+                '6' => 'costos',
+                '5' => 'gastos',
+                default => null,
+            },
+        };
+    }
+
+    /**
+     * Normaliza el código para detectar jerarquía padre-hijo sin duplicar sumas.
+     */
+    private function prefijoJerarquico(string $codigo): string
+    {
+        $limpio = preg_replace('/[^0-9A-Za-z]/', '', trim($codigo));
+        $sinCerosFinales = rtrim($limpio, '0');
+
+        return $sinCerosFinales !== '' ? $sinCerosFinales : $limpio;
+    }
+
+    /**
+     * Calcula ingresos, costos, gastos, utilidades y porcentaje vertical sobre Ingresos (100%)
+     * de forma coherente con AnalisisFinancieroController.
+     */
+    private function calcularERAnio(int $empresaId, int $anio): array
+    {
+        $reportes = ReporteFinanciero::with('catalogo')
+            ->where('anio', $anio)
+            ->where('balance', false)
+            ->whereHas('catalogo', fn($q) => $q->where('empresa_id_empresa', $empresaId))
+            ->orderBy('id_reporte', 'asc')
+            ->get();
+
+        if ($reportes->isEmpty()) {
+            return ['cuentas' => collect(), 'totales' => null];
+        }
+
+        $cuentas = $reportes
+            ->groupBy('catalogo_id_catalogo')
+            ->map(function ($registros) {
+                $catalogo = $registros->first()->catalogo;
+                $codigo = trim((string) $catalogo->codigo_cuenta);
+
+                return (object) [
+                    'id'         => $catalogo->id_catalogo,
+                    'codigo'     => $codigo,
+                    'prefijo'    => $this->prefijoJerarquico($codigo),
+                    'nombre'     => $catalogo->nombre_cuenta,
+                    'grupo'      => $this->clasificarCuentaER($catalogo),
+                    'saldo'      => (float) $registros->sum('saldo'),
+                    'es_detalle' => true,
+                    'porcentaje' => null,
+                ];
+            })
+            ->sortBy('codigo', SORT_NATURAL)
+            ->values();
+
+        foreach ($cuentas as $cuenta) {
+            $tieneDescendientes = $cuentas->contains(function ($otra) use ($cuenta) {
+                return $otra->grupo === $cuenta->grupo
+                    && $otra->codigo !== $cuenta->codigo
+                    && strlen($otra->prefijo) > strlen($cuenta->prefijo)
+                    && str_starts_with($otra->prefijo, $cuenta->prefijo);
+            });
+
+            if ($tieneDescendientes) {
+                $cuenta->es_detalle = false;
+            }
+        }
+
+        $detalle = $cuentas->where('es_detalle', true);
+
+        $ingresos      = (float) $detalle->where('grupo', 'ingresos')->sum('saldo');
+        $costos        = (float) $detalle->where('grupo', 'costos')->sum('saldo');
+        $gastos        = (float) $detalle->where('grupo', 'gastos')->sum('saldo');
+        $utilidadBruta = $ingresos - $costos;
+        $utilidadNeta  = $utilidadBruta - $gastos;
+
+        foreach ($cuentas as $cuenta) {
+            $cuenta->porcentaje = abs($ingresos) > 0.00000001
+                ? ($cuenta->saldo / $ingresos) * 100
+                : null;
+        }
+
+        return [
+            'cuentas' => $cuentas->keyBy('id'),
+            'totales' => [
+                'ingresos'       => $ingresos,
+                'costos'         => $costos,
+                'gastos'         => $gastos,
+                'utilidad_bruta' => $utilidadBruta,
+                'utilidad_neta'  => $utilidadNeta,
+            ],
+        ];
     }
 
     public function analisis(Request $request)
@@ -190,43 +373,104 @@ class EstadoResultadosController extends Controller
             'actual' => 'required|integer|min:2017|gte:pasado'
         ]);
 
-        $anio_menor = $request->pasado;
-        $anio_mayor = $request->actual;
+        $usuario   = Usuario::find(session('usuario_id'));
+        $empresaId = (int) $usuario->id_empresa;
+        $anioMenor = (int) $request->pasado;
+        $anioMayor = (int) $request->actual;
 
-        $analisisHorizontal = $this->horizontal($anio_menor, $anio_mayor);
-        $verticalMenorMap = $this->vertical($anio_menor)->keyBy('catalogo.nombre_cuenta');
-        $verticalMayorMap = $this->vertical($anio_mayor)->keyBy('catalogo.nombre_cuenta');
-        
-        if (empty($analisisHorizontal) || $verticalMenorMap->isEmpty() || $verticalMayorMap->isEmpty()) {
-            return redirect()->route('estado-resultados.index')->with('error', 'No se encontraron datos suficientes para comparar ' . $anio_menor . ' y ' . $anio_mayor);
+        $dataMenor = $this->calcularERAnio($empresaId, $anioMenor);
+        $dataMayor = $this->calcularERAnio($empresaId, $anioMayor);
+
+        if (!$dataMenor['totales'] || !$dataMayor['totales']) {
+            return redirect()->route('estado-resultados.index')
+                ->with('error', "No se encontraron datos suficientes para comparar {$anioMenor} y {$anioMayor}");
         }
+
+        $todasLasCuentas = $dataMenor['cuentas']
+            ->union($dataMayor['cuentas'])
+            ->sortBy('codigo', SORT_NATURAL)
+            ->values();
+
+        $gruposCuentas = [
+            'ingresos' => [],
+            'costos'   => [],
+            'gastos'   => [],
+        ];
+
         $resultadosCompletos = [];
-        foreach ($analisisHorizontal as $itemH) {
-            $cuenta = $itemH['cuenta'];
-            
-            // Buscar los datos verticales
-            $itemV_Menor = $verticalMenorMap->get($cuenta);
-            $itemV_Mayor = $verticalMayorMap->get($cuenta);
 
-            $resultadosCompletos[] = [
-                'cuenta' => $cuenta,
-                'saldo_menor' => $itemH['saldo_menor'],
-                'saldo_mayor' => $itemH['saldo_mayor'],
-                'cambio' => $itemH['cambio'],
-                'porcentaje_cambio' => $itemH['porcentaje_cambio'],
-                
-                // Añadir los porcentajes verticales
-                'vertical_menor' => $itemV_Menor ? $itemV_Menor->analisisVertical : 0,
-                'vertical_mayor' => $itemV_Mayor ? $itemV_Mayor->analisisVertical : 0,
+        foreach ($todasLasCuentas as $baseCuenta) {
+            $id    = $baseCuenta->id;
+            $cMen  = $dataMenor['cuentas']->get($id);
+            $cMay  = $dataMayor['cuentas']->get($id);
+            $grupo = $baseCuenta->grupo ?? 'gastos';
+
+            $saldoMenor = $cMen ? $cMen->saldo : 0.0;
+            $saldoMayor = $cMay ? $cMay->saldo : 0.0;
+            $cambio     = $saldoMayor - $saldoMenor;
+
+            $porcentajeCambio = abs($saldoMenor) > 0.00000001
+                ? ($cambio / abs($saldoMenor)) * 100
+                : (abs($saldoMayor) > 0.00000001 ? 100.0 : null);
+
+            $fila = [
+                'codigo'            => $baseCuenta->codigo,
+                'cuenta'            => $baseCuenta->nombre,
+                'grupo'             => $grupo,
+                'es_detalle'        => $baseCuenta->es_detalle,
+                'saldo_menor'       => $saldoMenor,
+                'saldo_mayor'       => $saldoMayor,
+                'cambio'            => $cambio,
+                'porcentaje_cambio' => $porcentajeCambio,
+                'vertical_menor'    => $cMen ? $cMen->porcentaje : 0.0,
+                'vertical_mayor'    => $cMay ? $cMay->porcentaje : 0.0,
             ];
+
+            if (isset($gruposCuentas[$grupo])) {
+                $gruposCuentas[$grupo][] = $fila;
+            }
+            $resultadosCompletos[] = $fila;
         }
+
+        $armarTotal = function (float $menor, float $mayor, float $ingMenor, float $ingMayor) {
+            $cambio = $mayor - $menor;
+            $varRel = abs($menor) > 0.00000001
+                ? ($cambio / abs($menor)) * 100
+                : (abs($mayor) > 0.00000001 ? 100.0 : null);
+            $vMenor = abs($ingMenor) > 0.00000001 ? ($menor / $ingMenor) * 100 : 0.0;
+            $vMayor = abs($ingMayor) > 0.00000001 ? ($mayor / $ingMayor) * 100 : 0.0;
+
+            return [
+                'menor'          => $menor,
+                'mayor'          => $mayor,
+                'cambio'         => $cambio,
+                'var_relativa'   => $varRel,
+                'vertical_menor' => $vMenor,
+                'vertical_mayor' => $vMayor,
+            ];
+        };
+
+        $tMen = $dataMenor['totales'];
+        $tMay = $dataMayor['totales'];
+
+        $totalesER = [
+            'ingresos'       => $armarTotal($tMen['ingresos'], $tMay['ingresos'], $tMen['ingresos'], $tMay['ingresos']),
+            'costos'         => $armarTotal($tMen['costos'], $tMay['costos'], $tMen['ingresos'], $tMay['ingresos']),
+            'gastos'         => $armarTotal($tMen['gastos'], $tMay['gastos'], $tMen['ingresos'], $tMay['ingresos']),
+            'utilidad_bruta' => $armarTotal($tMen['utilidad_bruta'], $tMay['utilidad_bruta'], $tMen['ingresos'], $tMay['ingresos']),
+            'utilidad_neta'  => $armarTotal($tMen['utilidad_neta'], $tMay['utilidad_neta'], $tMen['ingresos'], $tMay['ingresos']),
+        ];
+
         return view('EstadoResultados.analisisVerHor', [
-            'titulo' => 'Análisis de Estado de Resultados',
-            'anio_menor' => $anio_menor,
-            'anio_mayor' => $anio_mayor,
-            'resultadosCompletos' => $resultadosCompletos, // <-- La nueva variable
+            'titulo'              => 'Análisis de Estado de Resultados',
+            'anio_menor'          => $anioMenor,
+            'anio_mayor'          => $anioMayor,
+            'resultadosCompletos' => $resultadosCompletos,
+            'gruposCuentas'       => $gruposCuentas,
+            'totalesER'           => $totalesER,
         ]);
     }
+
     public function vertical(string $anio)
     {
         $usuario = Usuario::find(session('usuario_id'));
@@ -240,55 +484,24 @@ class EstadoResultadosController extends Controller
             ->get();
 
         if ($estadoResultados->isEmpty()) {
-            return $estadoResultados; // Devolver vacío        
+            return $estadoResultados;
         }
-        $ventasNetas = $estadoResultados[0]->saldo ?? 0; 
+
+        $ingresos = $estadoResultados
+            ->filter(fn($r) => $this->clasificarCuentaER($r->catalogo) === 'ingresos')
+            ->sum('saldo');
+
+        $base = abs($ingresos) > 0.00000001 ? $ingresos : ($estadoResultados[0]->saldo ?? 0);
 
         foreach ($estadoResultados as $item) {
-            if ($ventasNetas != 0) {
-                $item->analisisVertical = ($item->saldo / $ventasNetas) * 100;
-            } else {
-                $item->analisisVertical = 0; // Evitar división por cero
-            }
+            $item->analisisVertical = abs($base) > 0.00000001
+                ? ($item->saldo / $base) * 100
+                : 0;
         }
+
         return $estadoResultados;
     }
-    // public function horizontal(string $anio_menor, string $anio_mayor)
-    // {
-    //     $usuario = Usuario::find(session('usuario_id'));
-    //     $empresaId = $usuario->id_empresa;
 
-    //     $estadosResultados = ReporteFinanciero::with('catalogo')
-    //         ->whereIn('anio', [$anio_menor, $anio_mayor])
-    //         ->where('balance', false)
-    //         ->whereHas('catalogo', fn($q) => $q->where('empresa_id_empresa', $empresaId))
-    //         ->orderBy('catalogo_id_catalogo', 'asc')
-    //         ->get()
-    //         ->groupBy('anio');
-
-    //     $resultadosMenor = $estadosResultados[$anio_menor] ?? collect();
-    //     $resultadosMayor = $estadosResultados[$anio_mayor] ?? collect();
-
-    //     $analisisHorizontal = [];
-
-    //     foreach ($resultadosMenor as $itemMenor) {
-    //         $itemMayor = $resultadosMayor->firstWhere('catalogo_id_catalogo', $itemMenor->catalogo_id_catalogo);
-    //         if ($itemMayor) {
-    //             $cambio = $itemMayor->saldo - $itemMenor->saldo;
-    //             $porcentajeCambio = ($itemMenor->saldo != 0) ? ($cambio / abs($itemMenor->saldo)) * 100 : 0;
-
-    //             $analisisHorizontal[] = [
-    //                 'cuenta' => $itemMenor->catalogo->nombre_cuenta,
-    //                 'saldo_menor' => $itemMenor->saldo,
-    //                 'saldo_mayor' => $itemMayor->saldo,
-    //                 'cambio' => $cambio,
-    //                 'porcentaje_cambio' => $porcentajeCambio
-    //             ];
-    //         }
-    //     }
-
-    //     return $analisisHorizontal;
-    // }
     public function horizontal(string $anio_menor, string $anio_mayor)
     {
         $usuario = Usuario::find(session('usuario_id'));
@@ -311,21 +524,24 @@ class EstadoResultadosController extends Controller
             ->whereHas('catalogo', fn($q) => $q->where('empresa_id_empresa', $empresaId))
             ->get()
             ->keyBy('catalogo_id_catalogo');
-            
+
         if ($datosMenorMap->isEmpty()) {
             return [];
         }
+
         $analisisHorizontal = [];
 
         foreach ($datosMayor as $itemMayor) {
             $idCuenta = $itemMayor->catalogo_id_catalogo;
             $saldoMayor = $itemMayor->saldo;
             $itemMenor = $datosMenorMap->get($idCuenta);
-            $saldoMenor = $itemMenor ? $itemMenor->saldo : 0; 
+            $saldoMenor = $itemMenor ? $itemMenor->saldo : 0;
+
             $cambio = $saldoMayor - $saldoMenor;
             $porcentajeCambio = 0;
+
             if ($saldoMenor != 0) {
-                $porcentajeCambio = ($cambio / abs($saldoMenor)) * 100; 
+                $porcentajeCambio = ($cambio / abs($saldoMenor)) * 100;
             } elseif ($saldoMayor != 0) {
                 $porcentajeCambio = 100.0;
             }
@@ -341,93 +557,4 @@ class EstadoResultadosController extends Controller
 
         return $analisisHorizontal;
     }
-    /**
-     * Método privado para leer archivo Excel
-     */
-    // private function leerEstadoExcel($file, int $idEmpresa, int $anio): array
-    // {
-    //     $reporteList = [];
-        
-    //     // Nombres de cuentas válidas que se pueden crear automáticamente
-    //     $nombresCuentasValidas = [
-    //         "Ingresos de operación", "Total ingresos de operación",
-    //         "Costos de operación", "Total costos de operación",
-    //         "Gastos de operación", "Total gastos de operación",
-    //         "Otros ingresos", "Total otros ingresos",
-    //         "Otros gastos", "Total otros gastos",
-    //         "Otros ingresos y gastos, neto", "Otros ingresos y gastos, netos",
-    //         "Utilidad antes de gastos", "Utilidad de operación", "Utilidad en operación", "Utilidad operativa",
-    //         "Utilidad antes de impuestos", "Utilidad neta", "Utilidad Bruta",
-    //         "Total activos", "Activo total", "Activos total", "Total activo", 
-    //         "Total activo circulante", "Total activos circulantes", 
-    //         "Total activo corriente", "Total activos corrientes",
-    //         "Total pasivos", "Total pasivo", "Total pasivos circulantes", 
-    //         "Total pasivo circulante", "Total pasivo corriente", 
-    //         "Total patrimonio", "Total pasivo y patrimonio",
-    //         "Total ingresos", "Total egresos", "Resultado del ejercicio", 
-    //         "Resultado acumulado", "Resultados del período - Utilidad neta del año", 
-    //         "Resultado integrales totales del año", "Patrimonio neto", 
-    //         "Total patrimonio neto", "Capital contable", "Total capital contable",
-    //         "Total otros gastos, netos", "Utilidad antes de impuestos sobre la renta",
-    //         "Total otros activos", "Total otros pasivos", 
-    //         "Total otros ingresos y gastos", "Total de gastos de operación", 
-    //         "Total Otros gastos, neto", "Ventas totales", "Administrativos",
-    //         "Gastos de Administración", "Gastos de administración", 
-    //         "Ventas", "ventas", "Venta", "venta", 
-    //         "Ventas Netas", "Ventas netas", "Impuestos"
-    //     ];
-
-    //     try {
-    //         $spreadsheet = IOFactory::load($file->getPathname());
-    //         $sheet = $spreadsheet->getActiveSheet()->toArray();
-
-    //         $errores = [];
-    //         $exitos = 0;
-
-    //         foreach ($hoja as $i => $fila) {
-    //             if ($i === 0) continue;
-
-    //             $nombreCuenta = trim($fila[0] ?? '');
-    //             $saldo = floatval($fila[1] ?? 0);
-
-    //             $cuenta = Catalogo::where('empresa_id_empresa', $empresaId)
-    //                 ->where('nombre_cuenta', $nombreCuenta)->first();
-
-    //             // Si no existe, verificar si es una cuenta válida para crear
-    //             if (!$cuenta) {
-    //                 $cuentaValida = false;
-                    
-    //                 foreach ($nombresCuentasValidas as $cuentaPermitida) {
-    //                     if (strcasecmp($cuentaPermitida, trim($nombreCuenta)) === 0) {
-    //                         $cuentaValida = true;
-    //                         break;
-    //                     }
-    //                 }
-    //                 if ($cuentaValida) {
-    //                     // Crear nueva cuenta
-    //                     $catalogo = Catalogo::create([
-    //                         'codigo_cuenta' => ' ',
-    //                         'nombre_cuenta' => $nombreCuenta,
-    //                         'empresa_id_empresa' => $idEmpresa,
-    //                         'tipo_cuenta' => 'ER'
-    //                     ]);
-                            
-    //                 } else {
-    //                     break;
-    //                 }
-    //                 // Agregar a la lista de reportes para insertar
-    //                 $reporteList[] = [
-    //                     'anio' => $anio,
-    //                     'saldo' => $saldo,
-    //                     'balance' => false,
-    //                     'catalogo_id_catalogo' => $catalogo->id_catalogo
-    //                 ];
-    //             }
-    //         }
-    //         return $reporteList;
-    //     } catch (\Exception $e) {
-    //         throw new \Exception("Error al procesar el archivo: " . $e->getMessage());
-    //     }
-        
-    // }
 }
